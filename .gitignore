@@ -1,0 +1,16 @@
+# Virtual environment & Python cache
+.venv/
+__pycache__/
+*.pyc
+
+# Dataset & Output (ukuran besar, tidak di-commit ke Git)
+data/
+output/
+*.parquet
+*.csv
+!benchmark/results/*.csv
+
+# Spark & MapReduce temp files
+metastore_db/
+derby.log
+spark-warehouse/

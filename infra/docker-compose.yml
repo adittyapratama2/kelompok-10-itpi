@@ -1,0 +1,27 @@
+# Cluster Hadoop pseudo-distributed satu host: HDFS (namenode, datanode) + YARN (resourcemanager, nodemanager).
+x-hadoop: &hadoop
+  build: .
+  image: kelompok10/hadoop:3.4.1-py3
+  env_file: ./config
+
+services:
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports: ["9870:9870"]
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-hadoop/dfs/name"
+    # Klien job: run_hadoop_job.sh dijalankan dari sini.
+    volumes: ["..:/workspace"]
+  datanode:
+    <<: *hadoop
+    command: ["hdfs", "datanode"]
+  resourcemanager:
+    <<: *hadoop
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports: ["8088:8088"]
+  nodemanager:
+    <<: *hadoop
+    command: ["yarn", "nodemanager"]
