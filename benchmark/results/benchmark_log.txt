@@ -1,48 +1,83 @@
-taxi_100k  mapreduce_local      rep 1: wall   0.79s  job   0.65s  cpu   0.77s  mem    30.4 MB
-taxi_100k  mapreduce_local      rep 2: wall   0.69s  job   0.61s  cpu   0.74s  mem    29.2 MB
-taxi_100k  mapreduce_local      rep 3: wall   0.69s  job   0.63s  cpu   0.74s  mem    29.3 MB
-taxi_100k  hadoop_yarn          rep 1: wall  43.28s  job  28.86s  cpu   7.27s  mem   888.8 MB
-taxi_100k  hadoop_yarn          rep 2: wall  42.38s  job  28.40s  cpu   7.17s  mem   841.4 MB
-taxi_100k  hadoop_yarn          rep 3: wall  46.06s  job  32.46s  cpu   7.52s  mem   836.7 MB
-taxi_100k  hadoop_yarn_combiner rep 1: wall  41.38s  job  29.13s  cpu   6.66s  mem   838.5 MB
-taxi_100k  hadoop_yarn_combiner rep 2: wall  38.46s  job  25.55s  cpu   5.92s  mem   790.9 MB
-taxi_100k  hadoop_yarn_combiner rep 3: wall  34.24s  job  23.14s  cpu   5.34s  mem   792.8 MB
-taxi_100k  spark_df             rep 1: wall  13.56s  job  12.59s  cpu  41.62s  mem   729.6 MB
-taxi_100k  spark_df             rep 2: wall  13.50s  job  12.56s  cpu  39.29s  mem   781.6 MB
-taxi_100k  spark_df             rep 3: wall  12.91s  job  11.99s  cpu  37.72s  mem   736.3 MB
-taxi_100k  spark_rdd            rep 1: wall  11.42s  job   9.97s  cpu  31.93s  mem   809.2 MB
-taxi_100k  spark_rdd            rep 2: wall  12.30s  job  10.78s  cpu  34.03s  mem   783.9 MB
-taxi_100k  spark_rdd            rep 3: wall  12.52s  job  10.98s  cpu  34.62s  mem   808.3 MB
-taxi_500k  mapreduce_local      rep 1: wall   2.24s  job   2.18s  cpu   3.24s  mem   154.4 MB
-taxi_500k  mapreduce_local      rep 2: wall   2.23s  job   2.17s  cpu   3.13s  mem   145.8 MB
-taxi_500k  mapreduce_local      rep 3: wall   2.65s  job   2.55s  cpu   3.99s  mem   150.4 MB
-taxi_500k  hadoop_yarn          rep 1: wall  44.74s  job  32.45s  cpu  10.98s  mem   867.3 MB
-taxi_500k  hadoop_yarn          rep 2: wall  42.63s  job  29.55s  cpu   9.25s  mem   916.6 MB
-taxi_500k  hadoop_yarn          rep 3: wall  36.08s  job  25.61s  cpu   9.59s  mem   864.9 MB
-taxi_500k  hadoop_yarn_combiner rep 1: wall  45.58s  job  32.47s  cpu   9.90s  mem   809.9 MB
-taxi_500k  hadoop_yarn_combiner rep 2: wall  47.32s  job  32.65s  cpu  10.22s  mem   839.7 MB
-taxi_500k  hadoop_yarn_combiner rep 3: wall  39.86s  job  28.02s  cpu   8.65s  mem   801.0 MB
-taxi_500k  spark_df             rep 1: wall  15.60s  job  14.54s  cpu  49.22s  mem   889.3 MB
-taxi_500k  spark_df             rep 2: wall  17.60s  job  16.50s  cpu  60.37s  mem  1001.3 MB
-taxi_500k  spark_df             rep 3: wall  16.56s  job  15.36s  cpu  49.49s  mem  1068.5 MB
-taxi_500k  spark_rdd            rep 1: wall  14.72s  job  13.06s  cpu  40.95s  mem   828.3 MB
-taxi_500k  spark_rdd            rep 2: wall  16.01s  job  14.29s  cpu  43.82s  mem   794.8 MB
-taxi_500k  spark_rdd            rep 3: wall  15.34s  job  13.69s  cpu  43.78s  mem   792.3 MB
-taxi_1m    mapreduce_local      rep 1: wall   5.29s  job   5.19s  cpu   7.57s  mem   288.4 MB
-taxi_1m    mapreduce_local      rep 2: wall   4.88s  job   4.75s  cpu   7.12s  mem   284.9 MB
-taxi_1m    mapreduce_local      rep 3: wall   6.65s  job   6.57s  cpu   9.08s  mem   297.3 MB
-taxi_1m    hadoop_yarn          rep 1: wall  54.31s  job  40.20s  cpu  16.58s  mem   866.4 MB
-taxi_1m    hadoop_yarn          rep 2: wall  51.12s  job  36.76s  cpu  14.60s  mem   913.9 MB
-taxi_1m    hadoop_yarn          rep 3: wall  48.41s  job  34.05s  cpu  12.84s  mem   903.5 MB
-taxi_1m    hadoop_yarn_combiner rep 1: wall  43.49s  job  31.69s  cpu  10.59s  mem   829.2 MB
-taxi_1m    hadoop_yarn_combiner rep 2: wall  41.24s  job  29.85s  cpu  10.78s  mem   819.0 MB
-taxi_1m    hadoop_yarn_combiner rep 3: wall  47.16s  job  34.28s  cpu  11.46s  mem   881.6 MB
-taxi_1m    spark_df             rep 1: wall  16.27s  job  15.22s  cpu  50.83s  mem  1086.5 MB
-taxi_1m    spark_df             rep 2: wall  16.85s  job  15.69s  cpu  50.58s  mem  1616.5 MB
-taxi_1m    spark_df             rep 3: wall  15.93s  job  14.99s  cpu  50.40s  mem  1241.9 MB
-taxi_1m    spark_rdd            rep 1: wall  14.47s  job  12.97s  cpu  43.18s  mem   826.8 MB
-taxi_1m    spark_rdd            rep 2: wall  14.59s  job  13.00s  cpu  43.93s  mem   830.7 MB
-taxi_1m    spark_rdd            rep 3: wall  13.79s  job  12.24s  cpu  40.87s  mem   818.9 MB
-taxi_full  mapreduce_local      rep 1: wall  13.17s  job  13.05s  cpu  21.76s  mem   847.7 MB
-taxi_full  mapreduce_local      rep 2: wall  14.18s  job  14.09s  cpu  22.42s  mem   850.0 MB
-taxi_full  mapreduce_local      rep 3: wall  14.03s  job  13.90s  cpu  22.70s  mem   851.0 MB
+taxi_100k  mapreduce_local      rep 1: wall   0.66s  job   0.53s  cpu   0.61s  mem    22.1 MB
+taxi_100k  mapreduce_local      rep 2: wall   0.66s  job   0.53s  cpu   0.61s  mem    22.2 MB
+taxi_100k  mapreduce_local      rep 3: wall   0.66s  job   0.54s  cpu   0.62s  mem    22.1 MB
+taxi_100k  hadoop_yarn          rep 1: wall  23.08s  job  16.41s  cpu   2.86s  mem   883.7 MB
+taxi_100k  hadoop_yarn          rep 2: wall  23.80s  job  17.34s  cpu   3.57s  mem   844.9 MB
+taxi_100k  hadoop_yarn          rep 3: wall  26.56s  job  20.21s  cpu   4.80s  mem   797.4 MB
+taxi_100k  hadoop_yarn_combiner rep 1: wall  25.91s  job  19.54s  cpu   3.62s  mem   839.0 MB
+taxi_100k  hadoop_yarn_combiner rep 2: wall  28.98s  job  20.12s  cpu   2.50s  mem   795.0 MB
+taxi_100k  hadoop_yarn_combiner rep 3: wall  24.35s  job  17.06s  cpu   2.36s  mem   828.6 MB
+taxi_100k  spark_df             rep 1: wall   7.15s  job   6.25s  cpu  18.40s  mem   728.3 MB
+taxi_100k  spark_df             rep 2: wall   6.52s  job   5.50s  cpu  17.03s  mem   710.5 MB
+taxi_100k  spark_df             rep 3: wall   8.21s  job   7.21s  cpu  22.68s  mem   736.3 MB
+taxi_100k  spark_rdd            rep 1: wall   7.62s  job   6.15s  cpu  19.28s  mem   806.9 MB
+taxi_100k  spark_rdd            rep 2: wall   6.09s  job   4.61s  cpu  14.89s  mem   789.2 MB
+taxi_100k  spark_rdd            rep 3: wall   7.66s  job   6.14s  cpu  19.09s  mem   763.7 MB
+taxi_500k  mapreduce_local      rep 1: wall   2.29s  job   2.19s  cpu   2.68s  mem   132.4 MB
+taxi_500k  mapreduce_local      rep 2: wall   2.52s  job   2.44s  cpu   3.05s  mem   153.4 MB
+taxi_500k  mapreduce_local      rep 3: wall   1.71s  job   1.61s  cpu   1.97s  mem   140.9 MB
+taxi_500k  hadoop_yarn          rep 1: wall  28.97s  job  20.85s  cpu   4.46s  mem   792.4 MB
+taxi_500k  hadoop_yarn          rep 2: wall  28.08s  job  19.40s  cpu   5.17s  mem   929.3 MB
+taxi_500k  hadoop_yarn          rep 3: wall  27.22s  job  19.21s  cpu   4.46s  mem   860.8 MB
+taxi_500k  hadoop_yarn_combiner rep 1: wall  26.11s  job  19.27s  cpu   3.58s  mem   860.8 MB
+taxi_500k  hadoop_yarn_combiner rep 2: wall  28.83s  job  19.94s  cpu   5.31s  mem   808.2 MB
+taxi_500k  hadoop_yarn_combiner rep 3: wall  26.50s  job  19.58s  cpu   4.63s  mem   856.3 MB
+taxi_500k  spark_df             rep 1: wall   7.91s  job   7.13s  cpu  23.32s  mem  1019.9 MB
+taxi_500k  spark_df             rep 2: wall   8.04s  job   7.13s  cpu  22.67s  mem   856.0 MB
+taxi_500k  spark_df             rep 3: wall   6.00s  job   5.45s  cpu  18.67s  mem   889.0 MB
+taxi_500k  spark_rdd            rep 1: wall   6.35s  job   4.86s  cpu  16.48s  mem   808.5 MB
+taxi_500k  spark_rdd            rep 2: wall   7.00s  job   5.45s  cpu  17.58s  mem   793.9 MB
+taxi_500k  spark_rdd            rep 3: wall   7.62s  job   6.09s  cpu  19.68s  mem   765.9 MB
+taxi_1m    mapreduce_local      rep 1: wall   4.93s  job   4.79s  cpu   6.01s  mem   286.5 MB
+taxi_1m    mapreduce_local      rep 2: wall   3.09s  job   3.02s  cpu   3.84s  mem   272.4 MB
+taxi_1m    mapreduce_local      rep 3: wall   4.22s  job   4.15s  cpu   5.46s  mem   285.7 MB
+taxi_1m    hadoop_yarn          rep 1: wall  32.53s  job  24.83s  cpu   7.57s  mem   929.5 MB
+taxi_1m    hadoop_yarn          rep 2: wall  31.41s  job  23.73s  cpu   9.02s  mem   958.1 MB
+taxi_1m    hadoop_yarn          rep 3: wall  28.53s  job  20.23s  cpu   7.68s  mem   966.2 MB
+taxi_1m    hadoop_yarn_combiner rep 1: wall  27.44s  job  19.53s  cpu   5.07s  mem   824.6 MB
+taxi_1m    hadoop_yarn_combiner rep 2: wall  30.53s  job  22.43s  cpu   5.83s  mem   835.1 MB
+taxi_1m    hadoop_yarn_combiner rep 3: wall  27.92s  job  20.82s  cpu   5.69s  mem   896.4 MB
+taxi_1m    spark_df             rep 1: wall   6.95s  job   6.37s  cpu  19.52s  mem  1199.7 MB
+taxi_1m    spark_df             rep 2: wall   7.95s  job   7.41s  cpu  23.89s  mem  1058.1 MB
+taxi_1m    spark_df             rep 3: wall   6.60s  job   5.91s  cpu  19.29s  mem  1185.4 MB
+taxi_1m    spark_rdd            rep 1: wall   6.71s  job   5.25s  cpu  17.33s  mem   796.6 MB
+taxi_1m    spark_rdd            rep 2: wall   8.09s  job   6.63s  cpu  21.35s  mem   797.1 MB
+taxi_1m    spark_rdd            rep 3: wall   6.59s  job   5.12s  cpu  16.57s  mem   796.5 MB
+taxi_full  mapreduce_local      rep 1: wall  12.76s  job  12.72s  cpu  16.39s  mem   851.0 MB
+taxi_full  mapreduce_local      rep 2: wall  10.48s  job  10.42s  cpu  14.51s  mem   821.1 MB
+taxi_full  mapreduce_local      rep 3: wall  11.00s  job  10.91s  cpu  13.63s  mem   836.4 MB
+taxi_full  hadoop_yarn          rep 1: wall  43.85s  job  34.55s  cpu  19.31s  mem  1138.3 MB
+taxi_full  hadoop_yarn          rep 2: wall  41.37s  job  33.40s  cpu  19.86s  mem  1347.1 MB
+taxi_full  hadoop_yarn          rep 3: wall  38.15s  job  31.13s  cpu  19.54s  mem  1462.8 MB
+taxi_full  hadoop_yarn_combiner rep 1: wall  33.47s  job  24.51s  cpu  11.42s  mem  1316.7 MB
+taxi_full  hadoop_yarn_combiner rep 2: wall  29.95s  job  22.80s  cpu   9.87s  mem   885.4 MB
+taxi_full  hadoop_yarn_combiner rep 3: wall  33.70s  job  25.85s  cpu  10.47s  mem   898.8 MB
+taxi_full  spark_df             rep 1: wall   8.33s  job   7.43s  cpu  22.55s  mem  1218.7 MB
+taxi_full  spark_df             rep 2: wall   6.94s  job   6.17s  cpu  23.38s  mem  1245.0 MB
+taxi_full  spark_df             rep 3: wall   8.50s  job   7.69s  cpu  28.95s  mem  1157.9 MB
+taxi_full  spark_rdd            rep 1: wall   7.30s  job   5.84s  cpu  21.09s  mem   844.5 MB
+taxi_full  spark_rdd            rep 2: wall   8.76s  job   7.30s  cpu  26.06s  mem   841.2 MB
+taxi_full  spark_rdd            rep 3: wall   8.91s  job   7.45s  cpu  25.48s  mem   866.8 MB
+
+MEDIAN dari 3 ulangan (detail: benchmark/results/benchmark.csv)
+dataset    engine                wall (s)   job (s)   cpu (s)  mem (MB)
+taxi_100k  mapreduce_local           0.66      0.53      0.61      22.1
+taxi_100k  hadoop_yarn              23.80     17.34      3.57     844.9
+taxi_100k  hadoop_yarn_combiner     25.91     19.54      2.50     828.6
+taxi_100k  spark_df                  7.15      6.25     18.40     728.3
+taxi_100k  spark_rdd                 7.62      6.14     19.09     789.2
+taxi_500k  mapreduce_local           2.29      2.19      2.68     140.9
+taxi_500k  hadoop_yarn              28.08     19.40      4.46     860.8
+taxi_500k  hadoop_yarn_combiner     26.50     19.58      4.63     856.3
+taxi_500k  spark_df                  7.91      7.13     22.67     889.0
+taxi_500k  spark_rdd                 7.00      5.45     17.58     793.9
+taxi_1m    mapreduce_local           4.22      4.15      5.46     285.7
+taxi_1m    hadoop_yarn              31.41     23.73      7.68     958.1
+taxi_1m    hadoop_yarn_combiner     27.92     20.82      5.69     835.1
+taxi_1m    spark_df                  6.95      6.37     19.52    1185.4
+taxi_1m    spark_rdd                 6.71      5.25     17.33     796.6
+taxi_full  mapreduce_local          11.00     10.91     14.51     836.4
+taxi_full  hadoop_yarn              41.37     33.40     19.54    1347.1
+taxi_full  hadoop_yarn_combiner     33.47     24.51     10.47     898.8
+taxi_full  spark_df                  8.33      7.43     23.38    1218.7
+taxi_full  spark_rdd                 8.76      7.30     25.48     844.5

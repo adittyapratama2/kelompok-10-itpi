@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+*.docx
 
 # Dataset & Output (ukuran besar, tidak di-commit ke Git)
 data/

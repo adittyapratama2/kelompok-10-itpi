@@ -11,8 +11,12 @@ Engine lokal (MapReduce simulasi, Spark DF, Spark RDD) diukur dengan psutil dari
 proses + semua child-nya. Hadoop berjalan di dalam container, jadi CPU dan memorinya
 diambil dari Hadoop counters di log job (CPU time spent, Physical memory snapshot).
 
+Setiap run langsung ditambahkan ke benchmark/results/benchmark.csv, jadi run yang terhenti
+tidak menghapus hasil sebelumnya. Menjalankan ulang dataset yang sama menambah baris, bukan mengganti.
+
 Prasyarat Hadoop: docker compose -f infra/docker-compose.yml up -d
 Contoh: python benchmark/run_benchmark.py --reps 3
+        python benchmark/run_benchmark.py --reps 3 --datasets taxi_full
 """
 import argparse
 import csv
@@ -29,6 +33,8 @@ import psutil
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESULT_CSV = os.path.join(BASE_DIR, "benchmark", "results", "benchmark.csv")
 DATASETS = ["taxi_100k", "taxi_500k", "taxi_1m", "taxi_full"]
+FIELDS = ["dataset", "engine", "rep", "wall_sec", "job_sec", "cpu_sec", "peak_mem_mb",
+          "spilled_records", "shuffle_bytes"]
 PY = sys.executable
 HADOOP = ["docker", "compose", "-f", "infra/docker-compose.yml", "exec", "-T",
           "namenode", "bash", "/workspace/infra/run_hadoop_job.sh"]
@@ -100,28 +106,31 @@ def main():
     parser.add_argument("--datasets", nargs="+", default=DATASETS)
     args = parser.parse_args()
 
-    rows = []
-    for name in args.datasets:
-        for engine in args.engines:
-            for rep in range(1, args.reps + 1):
-                wall, cpu, mem, output = run_and_measure(command_for(engine, name))
-                job = float(re.search(r"Waktu Eksekusi: ([\d.]+)", output).group(1))
-                spilled = shuffle = ""
-                if engine.startswith("hadoop_yarn"):
-                    suffix = "_combiner" if engine.endswith("combiner") else ""
-                    cpu, mem, spilled, shuffle = hadoop_counters(name + suffix)
-                rows.append({"dataset": name, "engine": engine, "rep": rep,
-                             "wall_sec": round(wall, 2), "job_sec": round(job, 2),
-                             "cpu_sec": round(cpu, 2), "peak_mem_mb": round(mem, 1),
-                             "spilled_records": spilled, "shuffle_bytes": shuffle})
-                print(f"{name:<10} {engine:<20} rep {rep}: wall {wall:6.2f}s  job {job:6.2f}s  "
-                      f"cpu {cpu:6.2f}s  mem {mem:7.1f} MB", flush=True)
-
     os.makedirs(os.path.dirname(RESULT_CSV), exist_ok=True)
-    with open(RESULT_CSV, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
+    new_file = not os.path.exists(RESULT_CSV) or os.path.getsize(RESULT_CSV) == 0
+    rows = []
+    with open(RESULT_CSV, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        if new_file:
+            writer.writeheader()
+        for name in args.datasets:
+            for engine in args.engines:
+                for rep in range(1, args.reps + 1):
+                    wall, cpu, mem, output = run_and_measure(command_for(engine, name))
+                    job = float(re.search(r"Waktu Eksekusi: ([\d.]+)", output).group(1))
+                    spilled = shuffle = ""
+                    if engine.startswith("hadoop_yarn"):
+                        suffix = "_combiner" if engine.endswith("combiner") else ""
+                        cpu, mem, spilled, shuffle = hadoop_counters(name + suffix)
+                    row = {"dataset": name, "engine": engine, "rep": rep,
+                           "wall_sec": round(wall, 2), "job_sec": round(job, 2),
+                           "cpu_sec": round(cpu, 2), "peak_mem_mb": round(mem, 1),
+                           "spilled_records": spilled, "shuffle_bytes": shuffle}
+                    rows.append(row)
+                    writer.writerow(row)
+                    f.flush()
+                    print(f"{name:<10} {engine:<20} rep {rep}: wall {wall:6.2f}s  job {job:6.2f}s  "
+                          f"cpu {cpu:6.2f}s  mem {mem:7.1f} MB", flush=True)
 
     # Ringkasan: median antar ulangan, supaya satu run yang lambat tidak mendominasi.
     print(f"\nMEDIAN dari {args.reps} ulangan (detail: {os.path.relpath(RESULT_CSV, BASE_DIR)})")

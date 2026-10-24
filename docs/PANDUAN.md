@@ -148,7 +148,7 @@ python spark/spark_job.py data/taxi_100k.csv --mode rdd
 # 5. Bukti hasil semua engine sama
 python benchmark/verify_results.py taxi_100k
 
-# 6. Benchmark lengkap (4 dataset x 5 engine x 3 ulangan, sekitar 40 menit)
+# 6. Benchmark lengkap (4 dataset x 5 engine x 3 ulangan, sekitar 15-40 menit tergantung beban mesin)
 python benchmark/run_benchmark.py --reps 3
 
 # 7. Matikan cluster
@@ -159,7 +159,7 @@ Web UI saat cluster menyala: HDFS di http://localhost:9870, YARN (daftar job) di
 
 ### 3.1 Urutan demo Senin (data 100k)
 
-Demo memakai `taxi_100k` supaya semua engine selesai dalam beberapa menit. Data besar (500k, 1m, full) tidak dijalankan ulang di depan dosen; hasilnya sudah ada di `benchmark/results/benchmark.csv` dan dibahas di bagian 7. Kalau dosen bertanya "kenapa demo hanya 100k", jawabannya: alur dan kode yang dijalankan sama persis untuk semua ukuran, yang berbeda hanya argumen nama file; benchmark penuh butuh sekitar 40 menit, jadi hasilnya kita tunjukkan dari file.
+Demo memakai `taxi_100k` supaya semua engine selesai dalam beberapa menit. Data besar (500k, 1m, full) tidak dijalankan ulang di depan dosen; hasilnya sudah ada di `benchmark/results/benchmark.csv` dan dibahas di bagian 7. Kalau dosen bertanya "kenapa demo hanya 100k", jawabannya: alur dan kode yang dijalankan sama persis untuk semua ukuran, yang berbeda hanya argumen nama file; benchmark penuh butuh sekitar 15-40 menit, jadi hasilnya kita tunjukkan dari file.
 
 Sebelum dosen masuk:
 
@@ -174,10 +174,10 @@ Urutan di depan dosen:
 | No | Perintah | Waktu kira-kira (hasil ukur 100k) | Yang ditunjukkan |
 |---|---|---|---|
 | 1 | `python mapreduce/run_mapreduce.py data/taxi_100k.csv` | di bawah 1 detik | map, sort, reduce tanpa cluster; isi `output/mapreduce/mr_result_taxi_100k.tsv` |
-| 2 | `docker compose -f infra/docker-compose.yml exec namenode bash /workspace/infra/run_hadoop_job.sh data/taxi_100k.csv` | sekitar 40-45 detik total, job sekitar 28 detik | job Hadoop Streaming di YARN; counter di `output/hadoop/hadoop_log_taxi_100k.txt` |
+| 2 | `docker compose -f infra/docker-compose.yml exec namenode bash /workspace/infra/run_hadoop_job.sh data/taxi_100k.csv` | sekitar 25-45 detik total, job sekitar 17-28 detik, tergantung beban mesin | job Hadoop Streaming di YARN; counter di `output/hadoop/hadoop_log_taxi_100k.txt` |
 | 3 | perintah no. 2 ditambah argumen `combiner` | sama | bandingkan `Spilled Records` dan `Reduce shuffle bytes` dengan no. 2 |
-| 4 | `python spark/spark_job.py data/taxi_100k.csv --mode df` | sekitar 15 detik (termasuk startup Spark) | versi DataFrame |
-| 5 | `python spark/spark_job.py data/taxi_100k.csv --mode rdd` | sekitar 12-13 detik | versi RDD |
+| 4 | `python spark/spark_job.py data/taxi_100k.csv --mode df` | sekitar 6-16 detik (termasuk startup Spark), tergantung beban mesin | versi DataFrame |
+| 5 | `python spark/spark_job.py data/taxi_100k.csv --mode rdd` | sekitar 5-13 detik | versi RDD |
 | 6 | `python benchmark/verify_results.py taxi_100k` | sekitar 1 detik | kelima hasil sama |
 | 7 | buka `benchmark/results/benchmark.csv` | - | angka 4 ukuran, lalu bahas bagian 7 |
 
@@ -398,12 +398,13 @@ Membandingkan file hasil semua engine untuk satu dataset. Engine pertama yang fi
 
 | Baris | Kode | Penjelasan |
 |---|---|---|
-| 13 | `TOLERANCE = 0.011` | Batas selisih untuk nilai desimal. Kenapa 0,011 dan bukan 0,01: di komputer, `22.93 - 22.92` menghasilkan `0.010000000000001563`, sedikit di atas 0,01. Dengan batas 0,01 selisih pembulatan normal akan dianggap salah. |
-| 16-22 | `load(path)` | Baca file hasil menjadi dictionary `key -> (count, total, avg_amt, avg_dist)`. |
-| 27-35 | `files`, `results` | Lokasi hasil kelima engine. Engine yang belum dijalankan dilewati. |
-| 40-41 | `rows.keys() != ref.keys()` | Daftar key harus sama persis. |
-| 42-45 | perbandingan per key | **Jumlah trip harus identik.** Total dan rata-rata boleh beda maksimal 0,011. |
-| 50 | `sys.exit(0 if ok else 1)` | Exit code 1 kalau ada perbedaan, jadi bisa dipakai di script lain. |
+| 14 | `TOLERANCE = 0.011` | Batas selisih untuk nilai desimal. Kenapa 0,011 dan bukan 0,01: di komputer, `22.93 - 22.92` menghasilkan `0.010000000000001563`, sedikit di atas 0,01. Dengan batas 0,01 selisih pembulatan normal akan dianggap salah. |
+| 17-23 | `load(path)` | Baca file hasil menjadi dictionary `key -> (count, total, avg_amt, avg_dist)`. |
+| 28-34 | `files` | Lokasi hasil kelima engine. |
+| 35-42 | `missing`, `results`, `ok = not missing` | File yang belum ada dicetak `[HILANG]` dan membuat verifikasi gagal. Tanpa ini, engine yang belum dijalankan akan lolos diam-diam. Engine yang filenya ada tetap dibandingkan. |
+| 45-46 | `rows.keys() != ref.keys()` | Daftar key harus sama persis. |
+| 47-50 | perbandingan per key | **Jumlah trip harus identik.** Total dan rata-rata boleh beda maksimal 0,011. |
+| 55 | `sys.exit(0 if ok else 1)` | Exit code 1 kalau ada perbedaan atau file hilang, jadi bisa dipakai di script lain. |
 
 Kenapa nilai desimal boleh berbeda sedikit: penjumlahan float tidak persis, dan `(a + b) + c` bisa berbeda di digit sangat kecil dengan `a + (b + c)`. Setiap engine menjumlah dalam urutan berbeda (Hadoop per split, Spark per partisi, lokal berurutan). Setelah dibulatkan ke 2 desimal, digit terakhir kadang bergeser 0,01. Contoh nyata: zona 136 di Spark rata-rata tarifnya `22.93`, di Hadoop `22.92`. Totalnya `91.70` untuk 4 trip, dan `91.70 / 4 = 22.925` tepat di batas pembulatan.
 
@@ -411,17 +412,18 @@ Kenapa nilai desimal boleh berbeda sedikit: penjumlahan float tidak persis, dan 
 
 | Baris | Kode | Penjelasan |
 |---|---|---|
-| 37-45 | `command_for(engine, name)` | Perintah untuk kelima engine. Hadoop dijalankan lewat `docker compose exec` ke container namenode; varian combiner menambahkan argumen `combiner`. |
-| 48-79 | `run_and_measure(cmd)` | Jalankan perintah, lalu setiap 0,1 detik catat CPU dan memori proses beserta semua proses anaknya (`children(recursive=True)`). Proses anak perlu dihitung karena Spark menjalankan JVM sebagai proses terpisah, dan versi lokal menjalankan mapper, sort, reducer sebagai proses terpisah. |
-| 54 | `cpu_by_pid` | Simpan CPU terakhir per proses, jadi proses yang sudah selesai tetap terhitung. |
-| 69 | `peak_rss = max(...)` | Memori puncak = jumlah RSS semua proses pada satu titik sampling, diambil yang terbesar. |
-| 73-74 | `returncode != 0` | Kalau engine gagal, benchmark berhenti dengan pesan error, bukan mencatat angka palsu. |
-| 75-79 | `getrusage(RUSAGE_CHILDREN)` | Proses yang sangat singkat bisa selesai di antara dua sampling. `rusage` dari sistem operasi mencatat CPU semua proses anak yang sudah selesai. Dipakai nilai yang lebih besar dari kedua cara. |
-| 82-92 | `hadoop_counters(log_name)` | Proses task Hadoop berjalan di dalam container, bukan proses anak dari benchmark, jadi tidak terlihat oleh psutil. CPU dan memori diambil dari **Hadoop counters** di log job: `CPU time spent (ms)`, `Physical memory (bytes) snapshot`, `Spilled Records`, `Reduce shuffle bytes`. |
-| 104-118 | loop | Untuk setiap dataset, setiap engine, setiap ulangan: jalankan, ukur, simpan. |
-| 108 | `re.search(r"Waktu Eksekusi: ...")` | Ambil waktu yang dilaporkan engine sendiri dari laporan CLI. |
-| 120-124 | tulis CSV | Semua run disimpan ke `benchmark/results/benchmark.csv`. |
-| 126-134 | median | Ringkasan memakai median dari 3 ulangan. Alasan di 5.13. |
+| 43-51 | `command_for(engine, name)` | Perintah untuk kelima engine. Hadoop dijalankan lewat `docker compose exec` ke container namenode; varian combiner menambahkan argumen `combiner`. |
+| 54-85 | `run_and_measure(cmd)` | Jalankan perintah, lalu setiap 0,1 detik catat CPU dan memori proses beserta semua proses anaknya (`children(recursive=True)`). Proses anak perlu dihitung karena Spark menjalankan JVM sebagai proses terpisah, dan versi lokal menjalankan mapper, sort, reducer sebagai proses terpisah. |
+| 60 | `cpu_by_pid` | Simpan CPU terakhir per proses, jadi proses yang sudah selesai tetap terhitung. |
+| 75 | `peak_rss = max(...)` | Memori puncak = jumlah RSS semua proses pada satu titik sampling, diambil yang terbesar. |
+| 79-80 | `returncode != 0` | Kalau engine gagal, benchmark berhenti dengan pesan error, bukan mencatat angka palsu. Run yang sudah selesai sebelumnya tetap tersimpan di CSV. |
+| 81-85 | `getrusage(RUSAGE_CHILDREN)` | Proses yang sangat singkat bisa selesai di antara dua sampling. `rusage` dari sistem operasi mencatat CPU semua proses anak yang sudah selesai. Dipakai nilai yang lebih besar dari kedua cara. |
+| 88-98 | `hadoop_counters(log_name)` | Proses task Hadoop berjalan di dalam container, bukan proses anak dari benchmark, jadi tidak terlihat oleh psutil. CPU dan memori diambil dari **Hadoop counters** di log job: `CPU time spent (ms)`, `Physical memory (bytes) snapshot`, `Spilled Records`, `Reduce shuffle bytes`. |
+| 109-115 | buka CSV mode `"a"` | File `benchmark/results/benchmark.csv` dibuka untuk **ditambah**, bukan ditimpa. Header hanya ditulis kalau file belum ada atau kosong. Jadi `--datasets taxi_full` menambah baris full tanpa menghapus hasil 100k, 500k, 1m. Konsekuensinya, menjalankan ulang dataset yang sama menambah baris duplikat; hapus baris lama dulu kalau ingin mengganti. |
+| 116-133 | loop | Untuk setiap dataset, setiap engine, setiap ulangan: jalankan, ukur, simpan. |
+| 120 | `re.search(r"Waktu Eksekusi: ...")` | Ambil waktu yang dilaporkan engine sendiri dari laporan CLI. |
+| 130-131 | `writerow`, `flush` | Setiap run langsung ditulis ke disk. Kalau benchmark terhenti di tengah, run yang sudah selesai tidak hilang. |
+| 135-143 | median | Ringkasan memakai median dari 3 ulangan. Alasan di 5.13. |
 
 Dua ukuran waktu:
 
@@ -437,7 +439,7 @@ Setiap pilihan ditulis dengan pola yang sama: apa yang kita pakai, alternatifnya
 ### 5.1 Dataset: NYC Yellow Taxi
 
 - **Alternatif**: log server, dataset e-commerce dari Kaggle, data buatan sendiri.
-- **Kenapa ini**: data transaksi asli (sesuai contoh soal), dari sumber resmi pemerintah kota, bisa diunduh ulang siapa saja dengan URL yang sama, sehingga hasil kita bisa diulang. Jumlah barisnya (2,96 juta) cukup untuk dibuat tiga ukuran. Isinya cocok untuk agregasi group-by yang menjadi pola dasar MapReduce.
+- **Kenapa ini**: data transaksi asli (sesuai contoh soal), dari sumber resmi pemerintah kota, bisa diunduh ulang siapa saja dengan URL yang sama, sehingga hasil kita bisa diulang. Jumlah barisnya (2,96 juta) cukup untuk dibuat empat ukuran (100k, 500k, 1m, dan seluruhnya). Isinya cocok untuk agregasi group-by yang menjadi pola dasar MapReduce.
 - **Kelemahan**: file terbesar kita 127 MB (satu bulan penuh). Itu kecil untuk ukuran "big data", bahkan masih di bawah satu blok HDFS (128 MB), jadi Hadoop tetap membuat 2 split. Hasil benchmark kita menggambarkan perilaku engine pada data kecil di satu mesin, bukan pada skala yang menjadi alasan Hadoop dan Spark dibuat.
 
 ### 5.2 Format input: CSV, bukan Parquet
@@ -518,7 +520,7 @@ Setiap pilihan ditulis dengan pola yang sama: apa yang kita pakai, alternatifnya
 
 - **Alternatif**: rata-rata, atau lebih banyak ulangan.
 - **Kenapa median**: satu run yang lambat (misalnya run pertama saat file belum ada di cache disk) tidak menggeser median, tetapi menggeser rata-rata.
-- **Kelemahan**: 3 ulangan itu sedikit. Kita tidak menghitung simpangan atau selang kepercayaan. Semua angka per ulangan ada di `benchmark.csv`, jadi variasinya bisa dilihat langsung. Selisih kecil antar engine (di bawah sekitar 1 detik) jangan ditafsirkan sebagai perbedaan nyata.
+- **Kelemahan**: 3 ulangan itu sedikit. Kita tidak menghitung simpangan atau selang kepercayaan. Semua angka per ulangan ada di `benchmark.csv`, jadi variasinya bisa dilihat langsung. Selisih antar engine yang lebih kecil dari variasi antar ulangan (Spark sekitar 1,7 detik, Hadoop sampai 4,6 detik, lihat 7.2) jangan ditafsirkan sebagai perbedaan nyata.
 
 ### 5.14 Cara mengukur resource: psutil + rusage untuk lokal, counters untuk Hadoop
 
@@ -562,7 +564,7 @@ Catatan untuk RDD di PySpark: `parse_line` dan lambda `reduceByKey` adalah kode 
 
 ### 6.4 Overhead tetap (startup)
 
-- **Hadoop/YARN**: setiap job meminta container ke ResourceManager, memulai ApplicationMaster (JVM), lalu memulai JVM untuk setiap map task dan reduce task. Biaya ini puluhan detik dan hampir tidak tergantung ukuran data.
+- **Hadoop/YARN**: setiap job meminta container ke ResourceManager, memulai ApplicationMaster (JVM), lalu memulai JVM untuk setiap map task dan reduce task. Biaya ini belasan sampai puluhan detik (job 100k sudah 17 detik di 7.2) dan hampir tidak tergantung ukuran data.
 - **Spark**: menyalakan JVM dan SparkSession, dicetak sebagai `Startup SparkSession`.
 - **MapReduce lokal**: hanya memulai beberapa proses Python dan `sort`.
 
@@ -571,124 +573,135 @@ Akibatnya, untuk data kecil overhead mendominasi. Keunggulan Hadoop dan Spark (p
 ### 6.5 Keterbatasan pengujian kita (sampaikan apa adanya)
 
 1. **Satu mesin.** Tidak ada transfer data antar node lewat jaringan.
-2. **Data kecil** (paling besar 127 MB, masih di bawah satu blok HDFS, dan muat di RAM).
+2. **Data kecil** (paling besar 132,8 MB atau 126,7 MiB, masih di bawah satu blok HDFS 128 MiB, dan muat di RAM).
 3. **Input CSV**, yang merugikan Spark (5.2).
 4. **Hadoop lewat Streaming**, yang lebih lambat dari Java MapReduce (5.4).
 5. **Batas resource kira-kira setara, bukan identik** (5.10).
 6. **Cara ukur resource berbeda** antara Hadoop dan engine lokal (5.14).
-7. **Mesin dipakai bersama** aplikasi lain. Karena itu setiap konfigurasi diulang 3 kali dan dipakai median, tapi 3 ulangan tetap sedikit (5.13).
+7. **Mesin dipakai bersama** aplikasi lain. Karena itu setiap konfigurasi diulang 3 kali dan dipakai median, tapi 3 ulangan tetap sedikit (5.13), dan angka absolut berbeda antar sesi (7.3 poin 8).
 8. **Hadoop di Docker, Spark langsung di host.**
 
 ---
 
 ## 7. Hasil benchmark dan cara membacanya
 
-Semua angka di bawah adalah **median dari 3 ulangan** (`python benchmark/run_benchmark.py --reps 3`, Sabtu 24 Oktober 2026). Angka setiap ulangan ada di `benchmark/results/benchmark.csv`, dan log lengkapnya di `benchmark/results/benchmark_log.txt`. Mesin: 16 core logis, 15 GB RAM, dipakai bersama aplikasi lain.
+Semua angka di bawah adalah **median dari 3 ulangan** (`python benchmark/run_benchmark.py --reps 3`, Sabtu 24 Oktober 2026). Keempat ukuran diukur **dalam satu sesi** yang sama (sekitar 15 menit). Angka setiap ulangan ada di `benchmark/results/benchmark.csv`, dan log lengkapnya di `benchmark/results/benchmark_log.txt`. Mesin: 16 core logis, 15 GB RAM, dipakai bersama aplikasi lain, dan cluster Hadoop menyala selama seluruh run.
 
 ### 7.1 Kebenaran dulu
 
-`verify_results.py` dijalankan setelah benchmark untuk ketiga dataset: **15 dari 15 perbandingan `OK`** (250 key untuk 100k, 264 untuk 500k, 271 untuk 1m). Kecepatan baru boleh dibandingkan setelah hasilnya terbukti sama.
+`verify_results.py` dijalankan setelah benchmark untuk keempat dataset: **20 dari 20 perbandingan `OK`** (250 key untuk 100k, 264 untuk 500k, 271 untuk 1m, 284 untuk full). Kecepatan baru boleh dibandingkan setelah hasilnya terbukti sama.
 
 ### 7.2 Tabel hasil
 
 | Dataset | Engine | wall (s) | job (s) | CPU (s) | Memori (MB) |
 |---|---|---:|---:|---:|---:|
-| 100k (4,5 MB) | MapReduce lokal | 0,55 | 0,43 | 0,51 | 22 |
-| | Hadoop YARN | 40,27 | 28,00 | 7,26 | 802 |
-| | Hadoop YARN + combiner | 43,70 | 27,56 | 6,14 | 757 |
-| | Spark DataFrame | 16,53 | 15,57 | 46,36 | 744 |
-| | Spark RDD | 14,10 | 12,54 | 38,16 | 820 |
-| 500k (22,4 MB) | MapReduce lokal | 2,63 | 2,53 | 3,65 | 149 |
-| | Hadoop YARN | 45,68 | 32,11 | 11,13 | 892 |
-| | Hadoop YARN + combiner | 40,59 | 27,96 | 8,49 | 804 |
-| | Spark DataFrame | 15,89 | 15,05 | 44,65 | 1100 |
-| | Spark RDD | 12,71 | 11,25 | 36,63 | 819 |
-| 1m (44,9 MB) | MapReduce lokal | 4,76 | 4,64 | 6,51 | 290 |
-| | Hadoop YARN | 47,82 | 34,77 | 12,95 | 953 |
-| | Hadoop YARN + combiner | 41,68 | 30,78 | 10,29 | 837 |
-| | Spark DataFrame | 14,98 | 14,01 | 45,93 | 1219 |
-| | Spark RDD | 13,50 | 12,05 | 38,63 | 823 |
+| 100k (4,5 MB) | MapReduce lokal | 0,66 | 0,53 | 0,61 | 22 |
+| | Hadoop YARN | 23,80 | 17,34 | 3,57 | 845 |
+| | Hadoop YARN + combiner | 25,91 | 19,54 | 2,50 | 829 |
+| | Spark DataFrame | 7,15 | 6,25 | 18,40 | 728 |
+| | Spark RDD | 7,62 | 6,14 | 19,09 | 789 |
+| 500k (22,4 MB) | MapReduce lokal | 2,29 | 2,19 | 2,68 | 141 |
+| | Hadoop YARN | 28,08 | 19,40 | 4,46 | 861 |
+| | Hadoop YARN + combiner | 26,50 | 19,58 | 4,63 | 856 |
+| | Spark DataFrame | 7,91 | 7,13 | 22,67 | 889 |
+| | Spark RDD | 7,00 | 5,45 | 17,58 | 794 |
+| 1m (44,9 MB) | MapReduce lokal | 4,22 | 4,15 | 5,46 | 286 |
+| | Hadoop YARN | 31,41 | 23,73 | 7,68 | 958 |
+| | Hadoop YARN + combiner | 27,92 | 20,82 | 5,69 | 835 |
+| | Spark DataFrame | 6,95 | 6,37 | 19,52 | 1185 |
+| | Spark RDD | 6,71 | 5,25 | 17,33 | 797 |
+| full (132,8 MB) | MapReduce lokal | 11,00 | 10,91 | 14,51 | 836 |
+| | Hadoop YARN | 41,37 | 33,40 | 19,54 | 1347 |
+| | Hadoop YARN + combiner | 33,47 | 24,51 | 10,47 | 899 |
+| | Spark DataFrame | 8,33 | 7,43 | 23,38 | 1219 |
+| | Spark RDD | 8,76 | 7,30 | 25,48 | 845 |
 
 Arti kolom (detail di 4.9):
 
 - **job**: untuk Hadoop, hanya perintah `hadoop jar` (submit sampai job selesai). Untuk Spark, dari sebelum `SparkSession` dibuat sampai `collect()` selesai, jadi **termasuk startup Spark**.
-- **wall**: seluruh proses dari luar. Untuk Hadoop, ditambah `docker exec`, `hdfs dfs -put`, `-rm`, dan `-getmerge`. Setiap perintah `hdfs` menyalakan JVM sendiri, jadi selisih wall dan job Hadoop sekitar 11-16 detik.
+- **wall**: seluruh proses dari luar. Untuk Hadoop, ditambah `docker exec`, `hdfs dfs -put`, `-rm`, dan `-getmerge`. Setiap perintah `hdfs` menyalakan JVM sendiri, jadi selisih wall dan job Hadoop sekitar 6-9 detik.
 - **CPU dan memori**: Hadoop dari counter task, engine lokal dari psutil. Keduanya **tidak bisa dibandingkan langsung** (5.14).
 
-Counter Hadoop untuk 1m (sama di ketiga ulangan):
+Variasi antar ulangan (`job` tertinggi dikurangi terendah) di sesi ini: Spark sekitar 1,2-1,7 detik, Hadoop 0,7-4,6 detik, MapReduce lokal sampai 2,3 detik di full. Selisih antar engine yang lebih kecil dari angka ini tidak kami tafsirkan.
 
-| Counter | Tanpa combiner | Dengan combiner |
-|---|---:|---:|
-| Map output records | 1.973.438 | 1.973.438 |
-| Combine output records | 0 | 531 |
-| Spilled Records | 3.946.876 | 1.062 |
-| Reduce shuffle bytes | 46.392.925 | 15.887 |
+Counter Hadoop (sama persis di ketiga ulangan):
+
+| Counter | 1m tanpa combiner | 1m dengan combiner | full tanpa combiner | full dengan combiner |
+|---|---:|---:|---:|---:|
+| Map output records | 1.973.438 | 1.973.438 | 5.857.408 | 5.857.408 |
+| Combine output records | 0 | 531 | 0 | 1.077 |
+| Spilled Records | 3.946.876 | 1.062 | 17.572.224 | 3.231 |
+| Reduce shuffle bytes | 46.392.925 | 15.887 | 137.602.572 | 32.506 |
 
 Pembagian waktu Spark, dari baris `Startup SparkSession` yang dicetak `spark_job.py`. Ini **satu kali jalan**, bukan median, jadi hanya untuk gambaran kasar:
 
-| | DF 100k | RDD 100k | DF 1m | RDD 1m |
+| | DF 100k | RDD 100k | DF full | RDD full |
 |---|---:|---:|---:|---:|
-| Startup SparkSession (s) | 7,85 | 8,21 | 8,42 | 9,78 |
-| Pemrosesan (s) | 6,02 | 3,20 | 7,45 | 4,98 |
+| Startup SparkSession (s) | 4,41 | 3,36 | 3,26 | 3,33 |
+| Pemrosesan (s) | 2,37 | 1,34 | 3,17 | 2,77 |
 
 ### 7.3 Cara membacanya
 
-**1. Pada ukuran data ini, biaya tetap mendominasi.** Hadoop butuh 28 detik untuk 100k, padahal datanya hanya 4,5 MB. Hampir semua waktu itu habis untuk meminta container ke YARN, menyalakan ApplicationMaster, dan menyalakan JVM per task (6.4). Spark menghabiskan sekitar 8-10 detik hanya untuk menyalakan JVM dan SparkSession. Urutan "lokal tercepat, lalu Spark, lalu Hadoop" sebagian besar adalah urutan biaya startup, bukan urutan kemampuan mengolah data.
+**1. Hadoop didominasi biaya tetap.** Hadoop butuh 17 detik untuk 100k, padahal datanya hanya 4,5 MB. Hampir semua waktu itu habis untuk meminta container ke YARN, menyalakan ApplicationMaster, dan menyalakan JVM per task (6.4). Spark membayar sekitar 3,3-4,4 detik untuk menyalakan JVM dan SparkSession. Di 100k sampai 1m, urutan "lokal tercepat, lalu Spark, lalu Hadoop" sebagian besar adalah urutan biaya startup, bukan urutan kemampuan mengolah data.
 
-**2. Data 10 kali lebih besar (100k ke 1m), kenaikan `job`:**
+**2. Data sekitar 30 kali lebih besar (100k ke full), kenaikan `job`:**
 
-| Engine | 100k | 1m | Kenaikan |
+| Engine | 100k | full | Kenaikan |
 |---|---:|---:|---:|
-| MapReduce lokal | 0,43 | 4,64 | +4,21 |
-| Hadoop YARN | 28,00 | 34,77 | +6,77 |
-| Hadoop YARN + combiner | 27,56 | 30,78 | +3,22 |
-| Spark DataFrame | 15,57 | 14,01 | -1,56 |
-| Spark RDD | 12,54 | 12,05 | -0,49 |
+| MapReduce lokal | 0,53 | 10,91 | +10,38 |
+| Hadoop YARN | 17,34 | 33,40 | +16,06 |
+| Hadoop YARN + combiner | 19,54 | 24,51 | +4,97 |
+| Spark DataFrame | 6,25 | 7,43 | +1,18 |
+| Spark RDD | 6,14 | 7,30 | +1,16 |
 
-- MapReduce lokal naik hampir sebanding dengan data (sekitar 10 kali), karena berjalan di satu proses tanpa paralelisme.
-- Hadoop naik beberapa detik di atas biaya tetap sekitar 28 detik.
-- Spark tidak terlihat naik. Ini **bukan** berarti data lebih besar diproses lebih cepat. Kenaikan biaya pengolahan Spark lebih kecil dari variasi antar waktu pengujian. Run 100k dijalankan lebih dulu dibanding run 1m, di saat beban aplikasi lain di laptop bisa berbeda. Selisih di bawah sekitar 2 detik tidak kami tafsirkan.
-- Kami tidak menguji data yang lebih besar dari RAM atau lebih dari satu mesin, jadi tren ini **tidak boleh diekstrapolasi**. MapReduce lokal tercepat di sini karena 45 MB muat di memori satu mesin; ia tidak bisa membagi kerja ke mesin lain.
+- MapReduce lokal naik hampir sebanding dengan data, karena berjalan di satu proses tanpa paralelisme. Sampai 1m ia tercepat, tetapi di full (10,91 detik) sudah lebih lambat dari kedua mode Spark (sekitar 7,4 detik).
+- Hadoop tanpa combiner naik 16 detik, dengan combiner hanya 5 detik. Selisih itu adalah biaya per record data antara (poin 3).
+- Spark hanya naik sekitar 1,2 detik, dan angka ini masih sebesar variasi antar ulangan. Satu kali jalan di atas menunjukkan pemrosesan naik dari 1,3-2,4 detik ke 2,8-3,2 detik, sedangkan startup tetap sekitar 3,3-4,4 detik. Di median, RDD 1m (5,25) bahkan lebih rendah dari RDD 100k (6,14); selisih sekecil itu tidak kami tafsirkan.
+- Kami tidak menguji data yang lebih besar dari RAM atau lebih dari satu mesin, jadi tren ini **tidak boleh diekstrapolasi**.
 
-**3. Efek combiner terlihat jelas di counter, kecil di waktu.**
+**3. Efek combiner selalu terlihat di counter, tetapi di waktu baru terlihat di full.**
 
-- Di 1m, shuffle turun dari 46.392.925 byte menjadi 15.887 byte, dan Spilled Records turun dari 3.946.876 menjadi 1.062.
-- CPU task turun dari 12,95 menjadi 10,29 detik.
-- Waktu job turun sekitar 4 detik di 500k (32,11 ke 27,96) dan di 1m (34,77 ke 30,78), tetapi tidak berbeda berarti di 100k (28,00 lawan 27,56).
-- Combiner menghapus biaya per record (tulis ke disk, sort, kirim ke reducer), tetapi tidak menyentuh biaya tetap YARN. Jadi manfaatnya bertambah seiring jumlah record.
+- Shuffle turun dari 46.392.925 ke 15.887 byte di 1m (sekitar 2.900 kali), dan dari 137.602.572 ke 32.506 byte di full (sekitar 4.200 kali). Spilled Records di full turun dari 17.572.224 ke 3.231.
+- CPU task di full turun dari 19,54 ke 10,47 detik.
+- Waktu job di full turun sekitar 9 detik (33,40 ke 24,51), dan rentang ketiga ulangannya tidak bertumpuk (31,13-34,55 lawan 22,80-25,85). Di ukuran lain, combiner 2,2 detik lebih lambat di 100k, hampir sama di 500k, dan 2,9 detik lebih cepat di 1m. Semua selisih itu masih di dalam variasi, jadi tidak kami anggap perbedaan.
+- Combiner menghapus biaya per record (tulis ke disk, sort, kirim ke reducer), tetapi tidak menyentuh biaya tetap YARN. Jadi manfaatnya baru melampaui variasi saat jumlah record cukup besar.
 
-**4. Hadoop lawan Spark di 1m.** Spark DataFrame 14,01 detik dan RDD 12,05 detik, Hadoop tanpa combiner 34,77 detik, Hadoop dengan combiner 30,78 detik. Spark sekitar 2,2 sampai 2,9 kali lebih cepat, **untuk data ini, di mesin ini, dengan konfigurasi ini**. Penyebabnya bercampur dan tidak kami pisahkan:
+**4. Hadoop lawan Spark di full.** Spark DataFrame 7,43 detik dan RDD 7,30 detik, Hadoop tanpa combiner 33,40 detik, Hadoop dengan combiner 24,51 detik. Spark sekitar 3,3 sampai 4,6 kali lebih cepat, **untuk data ini, di mesin ini, dengan konfigurasi ini, di sesi ini**. Penyebabnya bercampur dan tidak kami pisahkan:
 
 - biaya YARN yang hanya dibayar Hadoop (5.10);
 - data antara Hadoop yang ditulis ke disk;
 - Hadoop di Docker dengan Java 8, Spark di host dengan Java 21.
 
-**5. CPU Spark jauh di atas wall dan hampir tidak berubah dengan ukuran data.** DF sekitar 45 detik CPU dan RDD sekitar 38 detik, di 100k maupun 1m. Karena angkanya tetap, sebagian besar CPU itu kemungkinan biaya tetap: JVM startup, kompilasi JIT, codegen, dan proses Python worker. Ini dugaan dari polanya; kami tidak memprofil CPU. Untuk Hadoop, counter CPU hanya menghitung task (7-13 detik), tidak termasuk daemon.
+**5. CPU Spark jauh di atas wall.** DF sekitar 18-23 detik CPU dan RDD sekitar 17-25 detik, sedangkan job-nya 5-7 detik. Spark menjalankan 4 thread task ditambah thread JVM untuk JIT dan garbage collector (8.4). Kenaikannya dari 100k ke full (sekitar 5-6 detik) jauh lebih kecil dari kenaikan data, jadi sebagian besar CPU itu kemungkinan biaya tetap. Ini dugaan dari polanya; kami tidak memprofil CPU. Untuk Hadoop, counter CPU hanya menghitung task (2,5-19,5 detik), tidak termasuk daemon.
 
-**6. DataFrame lebih lambat dari RDD di semua ukuran (2-4 detik).**
+**6. DataFrame lawan RDD: tidak ada pemenang yang bisa kami buktikan.**
 
-- *Diukur*:
-  - Startup keduanya mirip; selisihnya ada di pemrosesan (satu kali jalan: DF 6,02 lawan RDD 3,20 detik di 100k).
-  - Plan DF menunjukkan dua job: AQE menjalankan stage map sebagai job tersendiri, lalu stage reduce yang sudah digabung menjadi 1 task.
+- *Diukur*: median RDD tidak pernah di atas DF, tetapi selisihnya 0,1-1,7 detik, masih sebesar variasi antar ulangan. Di full keduanya hampir sama (7,43 lawan 7,30). Satu kali jalan menunjukkan pemrosesan DF sedikit lebih lama (2,37 lawan 1,34 detik di 100k, 3,17 lawan 2,77 di full).
+- *Diukur*: plan DF menjalankan dua job: AQE menjalankan stage map sebagai job tersendiri, lalu stage reduce yang sudah digabung menjadi 1 task.
 - *Dugaan*, tidak kami profil: DF membayar perencanaan Catalyst dan kompilasi codegen di setiap run, dan biaya itu belum terbayar di data sekecil ini.
-- Di PySpark, DataFrame biasanya lebih cepat dari RDD pada data besar, karena RDD harus mengirim setiap baris dari JVM ke proses Python dan kembali. Kondisi itu tidak kami uji, jadi kami tidak mengklaimnya untuk proyek ini.
+- Di PySpark, DataFrame biasanya lebih cepat dari RDD pada data besar, karena RDD harus mengirim setiap baris dari JVM ke proses Python dan kembali. Data terbesar kami (133 MB) belum cukup untuk menunjukkannya, jadi kami tidak mengklaimnya untuk proyek ini.
 
 **7. Memori.**
 
-- MapReduce lokal naik dari 22 MB ke 290 MB. Hampir semuanya dari `sort`, yang menahan seluruh data antara (40 MiB untuk 1m) di memori: diukur terpisah dengan `/usr/bin/time`, `sort` mencapai maxRSS 284 MiB, sedangkan mapper dan reducer sekitar 9 MB.
-- Spark DF naik dari 744 MB ke 1219 MB, sedangkan RDD tetap sekitar 820 MB. Kami belum memeriksa penyebabnya. Kemungkinannya, heap JVM ikut membesar sebelum garbage collector berjalan.
+- MapReduce lokal naik dari 22 MB ke 286 MB (1m) dan 836 MB (full). Hampir semuanya dari `sort`, yang menahan seluruh data antara di memori: diukur terpisah untuk 1m dengan `/usr/bin/time`, `sort` mencapai maxRSS 284 MiB, sedangkan mapper dan reducer sekitar 9 MB. Untuk full tidak kami ukur terpisah.
+- Hadoop tanpa combiner naik dari 845 MB ke 1347 MB, sedangkan dengan combiner tetap sekitar 830-900 MB. Ini sejalan dengan data antara yang jauh lebih kecil saat combiner dipasang; rincian per task tidak kami periksa.
+- Spark DF naik dari 728 MB ke 1219 MB, sedangkan RDD tetap sekitar 790-845 MB. Kami belum memeriksa penyebabnya. Kemungkinannya, heap JVM ikut membesar sebelum garbage collector berjalan.
 - Semua angka Spark jauh di bawah batas 4 GB.
+
+**8. Angka absolut bergantung pada sesi.** Sebelum run ini, tiga ukuran pertama diukur di sesi lain dan full di sesi terpisah lagi (arsipnya di `benchmark/results/benchmark_arsip_sesi_terpisah.csv`). Di sesi lama itu, untuk 1m Hadoop 34,77 detik, Spark DF 14,01 dan RDD 12,05 detik, dengan CPU Spark sekitar 37-46 detik di ketiga ukuran. Urutan engine sama, tetapi angka dan rasionya berbeda (Spark 2,2-2,9 kali lebih cepat di 1m, lawan 3,3-4,5 kali di sesi ini). Penyebabnya tidak kami ukur; dugaan kami beban aplikasi lain di laptop. Karena itu keempat ukuran diukur ulang dalam satu sesi, dan perbandingan hanya dilakukan antar angka dari sesi yang sama.
 
 ### 7.4 Kalimat kesimpulan yang aman diucapkan
 
-- "Kelima engine memberi hasil yang sama untuk ketiga dataset; dibuktikan `verify_results.py` dan dicek silang dengan `awk` (8.6)."
-- "Pada data sampai 45 MB di satu mesin, waktu Hadoop dan Spark didominasi biaya tetap startup, bukan pengolahan data."
-- "Di 1m, Spark sekitar 2,2 sampai 2,9 kali lebih cepat dari Hadoop di pengujian kami; penyebabnya gabungan overhead YARN, I/O disk data antara, dan perbedaan lingkungan."
-- "Combiner memperkecil shuffle Hadoop sekitar 2.900 kali dan memangkas sekitar 4 detik di 500k dan 1m."
+- "Kelima engine memberi hasil yang sama untuk keempat dataset; dibuktikan `verify_results.py` dan dicek silang dengan `awk` (8.6)."
+- "Pada data sampai 133 MB di satu mesin, waktu Hadoop didominasi biaya tetap YARN, sekitar 17 detik bahkan untuk 4,5 MB."
+- "Di data full, Spark sekitar 3,3 sampai 4,6 kali lebih cepat dari Hadoop di sesi pengujian kami. Rasio ini berubah antar sesi, jadi angkanya bukan konstanta."
+- "Combiner memperkecil shuffle Hadoop ribuan kali di semua ukuran, tetapi penghematan waktunya baru jelas di full, sekitar 9 detik."
+- "MapReduce lokal tercepat sampai 1m karena tidak punya biaya startup, tetapi di full sudah lebih lambat dari Spark karena hanya memakai satu proses."
 
 Kalimat yang **tidak** boleh diucapkan:
 
-- "Spark 2,5 kali lebih cepat dari Hadoop" tanpa syarat. Angka itu hanya berlaku untuk pengujian ini.
+- "Spark 4 kali lebih cepat dari Hadoop" tanpa syarat. Angka itu hanya berlaku untuk pengujian ini, dan di sesi lain rasionya 2,2-2,9.
+- "RDD lebih cepat dari DataFrame" atau sebaliknya. Selisihnya masih di dalam variasi.
 - "MapReduce lokal paling efisien, jadi tidak perlu Hadoop." Ia tidak bisa berjalan di lebih dari satu mesin.
 - "Spark tidak memakai disk." Shuffle Spark juga menulis ke disk (6.1).
 
@@ -858,9 +871,9 @@ Aturan menjawab:
 
 - **Jawab**: `textFile` tanpa argumen membuat paling sedikit `min(defaultParallelism, 2)` = 2 partisi, jadi hanya 2 dari 4 core yang bekerja (diukur: 2 partisi tanpa `minPartitions`, 4 dengan `minPartitions`, untuk ketiga dataset). DataFrame membagi file berdasarkan ukuran dan jumlah core, dengan ukuran potongan minimal 4 MB (`spark.sql.files.openCostInBytes`). Hasilnya 4 partisi untuk 500k dan 1m, tetapi **hanya 2 partisi untuk 100k** karena filenya cuma 4,5 MB. Jadi di 100k DataFrame juga hanya memakai 2 core. Kami tidak mengubahnya; dengan data sekecil itu efeknya tidak berarti dibanding startup.
 
-**Bukankah DataFrame seharusnya lebih cepat dari RDD? Di hasil kalian justru lebih lambat.**
+**Bukankah DataFrame seharusnya lebih cepat dari RDD? Di hasil kalian tidak terlihat.**
 
-- **Jawab**: Di data kami, DF memang 2-4 detik lebih lambat di ketiga ukuran. Yang kami ukur: startup keduanya mirip, selisihnya di pemrosesan; plan DF juga menjalankan dua job (stage map dijalankan AQE sebagai job tersendiri). Dugaan kami, belum diprofil: biaya perencanaan Catalyst dan kompilasi codegen di setiap run belum terbayar oleh data sekecil ini. Keunggulan DF di PySpark biasanya muncul di data besar, karena RDD mengirim setiap baris dari JVM ke proses Python dan kembali. Itu tidak kami uji.
+- **Jawab**: Di data kami tidak ada pemenang yang terbukti. Median RDD tidak pernah di atas DF, tetapi selisihnya 0,1-1,7 detik, masih sebesar variasi antar ulangan, dan di full keduanya hampir sama (7,43 lawan 7,30 detik). Yang kami ukur: selisih yang ada terletak di pemrosesan, bukan startup; plan DF juga menjalankan dua job (stage map dijalankan AQE sebagai job tersendiri). Dugaan kami, belum diprofil: biaya perencanaan Catalyst dan kompilasi codegen di setiap run belum terbayar oleh data sekecil ini. Keunggulan DF di PySpark biasanya muncul di data besar, karena RDD mengirim setiap baris dari JVM ke proses Python dan kembali. Data terbesar kami (133 MB) belum cukup untuk menunjukkannya.
 - **Tunjukkan**: bagian 7.3 poin 6.
 - **Hindari**: "DataFrame selalu lebih cepat dari RDD" atau sebaliknya.
 
@@ -880,16 +893,17 @@ Aturan menjawab:
 
 **Memori Hadoop dan Spark diukur dengan cara berbeda. Bagaimana bisa dibandingkan?**
 
-- **Jawab**: Tidak bisa dibandingkan secara mentah, dan kami tidak melakukannya. Counter Hadoop hanya menghitung map task dan reduce task, tidak termasuk ApplicationMaster dan daemon. psutil untuk Spark menghitung seluruh JVM dan proses Python. Yang kami bandingkan adalah pola: bagaimana angka tiap engine berubah dari 100k ke 1m.
+- **Jawab**: Tidak bisa dibandingkan secara mentah, dan kami tidak melakukannya. Counter Hadoop hanya menghitung map task dan reduce task, tidak termasuk ApplicationMaster dan daemon. psutil untuk Spark menghitung seluruh JVM dan proses Python. Yang kami bandingkan adalah pola: bagaimana angka tiap engine berubah dari 100k ke full.
 
-**Kenapa memori MapReduce lokal naik dari 22 MB ke 290 MB?**
+**Kenapa memori MapReduce lokal naik dari 22 MB ke 836 MB?**
 
-- **Jawab**: Karena `sort`. GNU `sort` menahan seluruh data antara di memori sebelum menulis hasil terurut. Untuk 1m, data antara 40 MiB dan `sort` mencapai maxRSS 284 MiB, sedangkan mapper dan reducer hanya sekitar 9 MB, karena keduanya membaca baris per baris.
+- **Jawab**: Karena `sort`. GNU `sort` menahan seluruh data antara di memori sebelum menulis hasil terurut. Untuk 1m (286 MB total), data antara 40 MiB dan `sort` mencapai maxRSS 284 MiB, sedangkan mapper dan reducer hanya sekitar 9 MB, karena keduanya membaca baris per baris.
 - **Tunjukkan**: `/usr/bin/time -f "%M KB" sort -t "$(printf '\t')" -k1,1 mapped.tsv > /dev/null`.
 
-**Kenapa Spark di 1m lebih cepat daripada di 100k?**
+**Kenapa waktu Spark hampir tidak naik padahal data full sekitar 30 kali lebih besar dari 100k?**
 
-- **Jawab**: Selisihnya sekitar 1,5 detik, lebih kecil dari variasi antar waktu pengujian. Run 100k dijalankan lebih dulu dibanding run 1m, di saat beban aplikasi lain di laptop bisa berbeda. Kami tidak menafsirkan selisih sekecil itu. Kesimpulan yang bisa diambil hanya bahwa biaya pengolahan Spark di ukuran ini lebih kecil dari biaya startup-nya.
+- **Jawab**: Median naik hanya sekitar 1,2 detik, masih sebesar variasi antar ulangan (1,2-1,7 detik). Satu kali jalan menunjukkan startup SparkSession tetap sekitar 3,3-4,4 detik, sedangkan pemrosesan naik dari 1,3-2,4 detik ke 2,8-3,2 detik dengan 4 thread. Median RDD 1m (5,25) bahkan lebih rendah dari 100k (6,14); selisih sekecil itu tidak kami tafsirkan. Kesimpulan yang bisa diambil hanya bahwa biaya pengolahan Spark di ukuran ini lebih kecil dari biaya startup-nya.
+- **Tunjukkan**: bagian 7.2 (tabel pembagian waktu Spark) dan 7.3 poin 2.
 
 **Saat Spark dibenchmark, apakah cluster Hadoop masih menyala?**
 
@@ -901,7 +915,7 @@ Aturan menjawab:
 
 **Tiga ulangan cukup?**
 
-- **Jawab**: Untuk melihat perbedaan besar (misalnya 40 detik lawan 15 detik), cukup. Untuk perbedaan kecil (di bawah sekitar 1 detik), tidak cukup, dan kami tidak menarik kesimpulan dari selisih sekecil itu. Semua angka per ulangan ada di `benchmark.csv`.
+- **Jawab**: Untuk melihat perbedaan besar (misalnya 33 detik lawan 7 detik di full), cukup. Untuk perbedaan yang lebih kecil dari variasi antar ulangan (Spark sekitar 1,7 detik, Hadoop sampai 4,6 detik), tidak cukup, dan kami tidak menarik kesimpulan dari selisih sekecil itu. Semua angka per ulangan ada di `benchmark.csv`.
 
 ### 8.6 Kebenaran hasil
 

@@ -1,0 +1,23 @@
+taxi_full  mapreduce_local      rep 1: wall   9.35s  job   9.28s  cpu  11.88s  mem   848.7 MB
+taxi_full  mapreduce_local      rep 2: wall   8.71s  job   8.60s  cpu  11.31s  mem   840.8 MB
+taxi_full  mapreduce_local      rep 3: wall   8.59s  job   8.53s  cpu  11.18s  mem   831.2 MB
+taxi_full  hadoop_yarn          rep 1: wall  43.15s  job  35.77s  cpu  18.00s  mem  1257.2 MB
+taxi_full  hadoop_yarn          rep 2: wall  41.19s  job  34.36s  cpu  18.93s  mem  1249.4 MB
+taxi_full  hadoop_yarn          rep 3: wall  40.04s  job  31.74s  cpu  17.17s  mem  1248.2 MB
+taxi_full  hadoop_yarn_combiner rep 1: wall  36.20s  job  28.39s  cpu  13.28s  mem  1287.7 MB
+taxi_full  hadoop_yarn_combiner rep 2: wall  35.11s  job  26.74s  cpu  11.67s  mem  1076.1 MB
+taxi_full  hadoop_yarn_combiner rep 3: wall  33.18s  job  26.03s  cpu  10.20s  mem   768.3 MB
+taxi_full  spark_df             rep 1: wall  10.44s  job   9.79s  cpu  29.62s  mem  1021.0 MB
+taxi_full  spark_df             rep 2: wall   8.44s  job   7.59s  cpu  26.88s  mem  1208.9 MB
+taxi_full  spark_df             rep 3: wall   8.55s  job   7.71s  cpu  26.63s  mem  1123.1 MB
+taxi_full  spark_rdd            rep 1: wall   7.86s  job   6.34s  cpu  21.93s  mem   817.7 MB
+taxi_full  spark_rdd            rep 2: wall   7.51s  job   6.05s  cpu  21.88s  mem   814.7 MB
+taxi_full  spark_rdd            rep 3: wall   7.36s  job   5.85s  cpu  21.23s  mem   820.7 MB
+
+MEDIAN dari 3 ulangan (detail: benchmark/results/benchmark.csv)
+dataset    engine                wall (s)   job (s)   cpu (s)  mem (MB)
+taxi_full  mapreduce_local           8.71      8.60     11.31     840.8
+taxi_full  hadoop_yarn              41.19     34.36     18.00    1249.4
+taxi_full  hadoop_yarn_combiner     35.11     26.74     11.67    1076.1
+taxi_full  spark_df                  8.55      7.71     26.88    1123.1
+taxi_full  spark_rdd                 7.51      6.05     21.88     817.7

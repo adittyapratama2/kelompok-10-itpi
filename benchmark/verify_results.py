@@ -3,6 +3,7 @@
 
 Jumlah trip (count) harus identik. Nilai uang dan jarak boleh beda maksimal 0.01
 karena penjumlahan float dalam urutan berbeda bisa menggeser pembulatan digit terakhir.
+Kelima file hasil wajib ada; file yang hilang membuat verifikasi gagal.
 
 Contoh: python benchmark/verify_results.py taxi_1m
 """
@@ -31,10 +32,14 @@ def main():
         "spark_df": f"output/spark/spark_df_result_{name}.tsv",
         "spark_rdd": f"output/spark/spark_rdd_result_{name}.tsv",
     }
-    results = {e: load(os.path.join(BASE_DIR, p)) for e, p in files.items()
-               if os.path.exists(os.path.join(BASE_DIR, p))}
+    missing = [p for p in files.values() if not os.path.exists(os.path.join(BASE_DIR, p))]
+    for p in missing:
+        print(f"[HILANG] {p}")
+    results = {e: load(os.path.join(BASE_DIR, p)) for e, p in files.items() if p not in missing}
+    if not results:
+        sys.exit(1)
     ref_name, ref = next(iter(results.items()))
-    ok = True
+    ok = not missing
     for engine, rows in results.items():
         problems = []
         if rows.keys() != ref.keys():
