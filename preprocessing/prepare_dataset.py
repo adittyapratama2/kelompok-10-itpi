@@ -33,7 +33,7 @@ def download_parquet():
     os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(PARQUET_PATH):
         size_mb = os.path.getsize(PARQUET_PATH) / (1024 * 1024)
-        print(f"[INFO] File Parquet sudah ada: {PARQUET_PATH} ({size_mb:.2f} MB)")
+        print(f"[INFO] File Parquet sudah ada: {PARQUET_PATH} ({size_mb:.2f} MiB)")
         return
 
     print(f"[1/2] Mengunduh NYC Yellow Taxi dataset dari {DATASET_URL} ...")
@@ -43,7 +43,7 @@ def download_parquet():
         shutil.copyfileobj(response, out_file)  # alirkan per potongan, tidak ditampung utuh di RAM
     elapsed = time.time() - start
     size_mb = os.path.getsize(PARQUET_PATH) / (1024 * 1024)
-    print(f"[DONE] Unduhan selesai dalam {elapsed:.2f} detik ({size_mb:.2f} MB)")
+    print(f"[DONE] Unduhan selesai dalam {elapsed:.2f} detik ({size_mb:.2f} MiB)")
 
 
 def convert_to_csv_subsets():
@@ -56,7 +56,7 @@ def convert_to_csv_subsets():
         out_path = os.path.join(DATA_DIR, filename)
         if os.path.exists(out_path):
             size_mb = os.path.getsize(out_path) / (1024 * 1024)
-            print(f"[SKIP] {filename} sudah ada ({size_mb:.2f} MB)")
+            print(f"[SKIP] {filename} sudah ada ({size_mb:.2f} MiB)")
             continue
 
         start = time.time()
@@ -65,7 +65,7 @@ def convert_to_csv_subsets():
         elapsed = time.time() - start
         size_mb = os.path.getsize(out_path) / (1024 * 1024)
         print(
-            f"[OK] {filename} ({sliced.num_rows:,} baris) berhasil dibuat -> {size_mb:.2f} MB ({elapsed:.2f} dtk)"
+            f"[OK] {filename} ({sliced.num_rows:,} baris) berhasil dibuat -> {size_mb:.2f} MiB ({elapsed:.2f} dtk)"
         )
 
 

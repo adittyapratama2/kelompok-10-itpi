@@ -57,7 +57,7 @@ def run_pipeline(input_csv):
 
     # Simulasi arsitektur MapReduce berbasis Disk I/O:
     # Phase 1: Map -> tulis hasil intermediate ke disk
-    # Phase 2: Shuffle & Sort -> urutkan file intermediate di disk
+    # Phase 2: Shuffle & Sort -> sort membaca file intermediate, hasil terurut ditulis ke file baru
     # Phase 3: Reduce -> agregasi hasil terurut dan simpan ke output akhir
     with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix="_mapped.tsv") as tmp_map, \
          tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix="_sorted.tsv") as tmp_sort:

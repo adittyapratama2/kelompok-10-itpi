@@ -32,10 +32,10 @@ Soal Tugas 2 (lihat `docs/Tugas 2.png`):
 
 | File | Baris data | Ukuran |
 |---|---|---|
-| `data/taxi_100k.csv` | 100.000 | 4,3 MB |
-| `data/taxi_500k.csv` | 500.000 | 21 MB |
-| `data/taxi_1m.csv` | 1.000.000 | 43 MB |
-| `data/taxi_full.csv` | 2.964.624 (satu bulan penuh) | 127 MB |
+| `data/taxi_100k.csv` | 100.000 | 4,5 MB (4,28 MiB) |
+| `data/taxi_500k.csv` | 500.000 | 22,4 MB (21,38 MiB) |
+| `data/taxi_1m.csv` | 1.000.000 | 44,9 MB (42,77 MiB) |
+| `data/taxi_full.csv` | 2.964.624 (satu bulan penuh) | 132,8 MB (126,7 MiB) |
 
 Potongan diambil dari **awal file** (N baris pertama), bukan sampel acak. Alasannya ada di bagian 5.3.
 
@@ -83,9 +83,9 @@ Dua baris di atas diambil dari hasil Hadoop untuk `taxi_1m.csv`. Zona 132 adalah
        |  preprocessing/prepare_dataset.py
        v
  data/yellow_tripdata_2024-01.parquet  (2,96 juta baris, 19 kolom)
-       |  ambil 6 kolom, potong 100k / 500k / 1m baris pertama
+       |  ambil 6 kolom, potong 100k / 500k / 1m baris pertama, plus full
        v
- data/taxi_100k.csv, taxi_500k.csv, taxi_1m.csv
+ data/taxi_100k.csv, taxi_500k.csv, taxi_1m.csv, taxi_full.csv
        |
        +-------------------+--------------------+--------------------+-------------------+
        |                   |                    |                    |                   |
@@ -440,7 +440,7 @@ Setiap pilihan ditulis dengan pola yang sama: apa yang kita pakai, alternatifnya
 
 - **Alternatif**: log server, dataset e-commerce dari Kaggle, data buatan sendiri.
 - **Kenapa ini**: data transaksi asli (sesuai contoh soal), dari sumber resmi pemerintah kota, bisa diunduh ulang siapa saja dengan URL yang sama, sehingga hasil kita bisa diulang. Jumlah barisnya (2,96 juta) cukup untuk dibuat empat ukuran (100k, 500k, 1m, dan seluruhnya). Isinya cocok untuk agregasi group-by yang menjadi pola dasar MapReduce.
-- **Kelemahan**: file terbesar kita 127 MB (satu bulan penuh). Itu kecil untuk ukuran "big data", bahkan masih di bawah satu blok HDFS (128 MB), jadi Hadoop tetap membuat 2 split. Hasil benchmark kita menggambarkan perilaku engine pada data kecil di satu mesin, bukan pada skala yang menjadi alasan Hadoop dan Spark dibuat.
+- **Kelemahan**: file terbesar kita 132,8 MB atau 126,7 MiB (satu bulan penuh). Itu kecil untuk ukuran "big data", bahkan masih di bawah satu blok HDFS (128 MiB). Hadoop tetap membuat 2 split, bukan karena ukuran blok, tetapi karena nilai default `mapreduce.job.maps` adalah 2 (8.1). Hasil benchmark kita menggambarkan perilaku engine pada data kecil di satu mesin, bukan pada skala yang menjadi alasan Hadoop dan Spark dibuat.
 
 ### 5.2 Format input: CSV, bukan Parquet
 
@@ -540,7 +540,7 @@ Setiap pilihan ditulis dengan pola yang sama: apa yang kita pakai, alternatifnya
 | | Hadoop MapReduce | Spark |
 |---|---|---|
 | Output map | Ditulis ke **disk lokal** (spill), lalu dibaca lagi oleh reducer | Output shuffle juga ditulis ke file lokal, tetapi data di dalam satu tahap mengalir di memori tanpa ditulis |
-| Bukti di proyek kita | Tanpa combiner sampai 1m, `Spilled Records` tepat 2x `Map output records` (1m: 3.946.876 = 2 x 1.973.438): setiap record antara ditulis ke disk dua kali, sekali di sisi map dan sekali saat merge di sisi reduce. Di data full menjadi **3x** (17.572.224 = 3 x 5.857.408): output map tidak lagi muat di buffer sort (`mapreduce.task.io.sort.mb`, default 100 MB, mulai ditulis saat 80% penuh), jadi setiap map menulis beberapa file spill lalu menggabungkannya lagi di disk. Semakin besar data, semakin banyak tulis-baca disk per record | Filter, `explode`/`flatMap`, dan agregasi parsial terjadi dalam satu tahap, baru hasil parsialnya yang di-shuffle |
+| Bukti di proyek kita | Tanpa combiner sampai 1m, `Spilled Records` tepat 2x `Map output records` (1m: 3.946.876 = 2 x 1.973.438): setiap record antara ditulis ke disk dua kali, sekali di sisi map dan sekali saat merge di sisi reduce. Di data full menjadi **3x** (17.572.224 = 3 x 5.857.408): output map tidak lagi muat di buffer sort (`mapreduce.task.io.sort.mb`, default 100 MB, mulai ditulis saat 80% penuh), jadi setiap map menulis dua file spill lalu menggabungkannya lagi di disk (lihat 8.5). Semakin besar data, semakin banyak tulis-baca disk per record | Filter, `explode`/`flatMap`, dan agregasi parsial terjadi dalam satu tahap, baru hasil parsialnya yang di-shuffle |
 | Pipeline multi-tahap | Setiap tahap adalah job terpisah, hasil antar job ditulis ke HDFS | Banyak tahap dirangkai dalam satu DAG |
 
 Hati-hati: jangan bilang "Spark tidak pakai disk". Spark juga menulis file shuffle ke disk lokal. Bedanya, Spark tidak menulis data antara di setiap langkah, dan untuk pipeline banyak tahap hasil antar tahap tidak perlu ditulis ke HDFS.
@@ -620,7 +620,7 @@ Arti kolom (detail di 4.9):
 
 - **job**: untuk Hadoop, hanya perintah `hadoop jar` (submit sampai job selesai). Untuk Spark, dari sebelum `SparkSession` dibuat sampai `collect()` selesai, jadi **termasuk startup Spark**.
 - **wall**: seluruh proses dari luar. Untuk Hadoop, ditambah `docker exec`, `hdfs dfs -put`, `-rm`, dan `-getmerge`. Setiap perintah `hdfs` menyalakan JVM sendiri, jadi selisih wall dan job Hadoop sekitar 6-9 detik.
-- **CPU dan memori**: Hadoop dari counter task, engine lokal dari psutil. Keduanya **tidak bisa dibandingkan langsung** (5.14).
+- **CPU dan memori**: Hadoop dari counter task, engine lokal dari psutil. Keduanya **tidak bisa dibandingkan langsung** (5.14). Kolom memori ditulis "MB", tetapi `run_benchmark.py` membagi dengan `2**20`, jadi satuannya MiB.
 
 Variasi antar ulangan (`job` tertinggi dikurangi terendah) di sesi ini: Spark sekitar 1,2-1,7 detik, Hadoop 0,7-4,6 detik, MapReduce lokal sampai 2,3 detik di full. Selisih antar engine yang lebih kecil dari angka ini tidak kami tafsirkan.
 
@@ -786,7 +786,7 @@ Aturan menjawab:
 
 - **Jawab**: Benar, sumber datanya berbeda. Job Hadoop di cluster membaca input dari HDFS. Spark mode lokal membaca file lokal; port RPC NameNode (8020) juga tidak dibuka ke host. Di satu mesin, HDFS menyimpan bloknya di disk yang sama, jadi perbedaannya ada di lapisan HDFS (komunikasi ke NameNode dan DataNode), bukan di disknya. Waktu upload ke HDFS (`hdfs dfs -put`) tidak masuk `job_sec`, tetapi masuk `wall_sec`.
 
-**Data paling besar cuma satu bulan (127 MB). Itu bukan big data, kan?**
+**Data paling besar cuma satu bulan (133 MB). Itu bukan big data, kan?**
 
 - **Jawab**: Betul, bukan. `taxi_full.csv` berisi 2.964.624 baris, 126,7 MiB, satu file bulanan dari sumbernya. Ukuran ini masih di bawah satu blok HDFS (128 MiB), jadi Hadoop tetap memakai 2 split seperti data yang lebih kecil, dan Spark masih menampung semuanya di memori 4 GB. Artinya hasil kami menggambarkan perilaku engine di data kecil sampai menengah di satu mesin. Pada skala itu overhead tetap (startup JVM, YARN, SparkSession) masih menyumbang porsi besar dari waktu total (lihat bagian 7). Kami tidak menguji gabungan beberapa bulan, jadi kami tidak membuat klaim tentang data yang lebih besar dari satu blok atau cluster multi-node.
 - **Tunjukkan**: `ls -lh data/`, bagian 6.5, dan log Hadoop full (`Launched map tasks=2`).
@@ -913,11 +913,35 @@ Aturan menjawab:
 
 - **Jawab**: Tidak kami ukur secara langsung. Sebagai gantinya kami memakai counter Hadoop `Spilled Records` dan `Reduce shuffle bytes`, yang menunjukkan berapa data antara yang ditulis dan dipindahkan. Untuk Spark, angka yang setara bisa dilihat di Spark UI (Shuffle Write), tetapi tidak kami catat di `benchmark.csv`.
 
+**Kenapa `Spilled Records` di full 3 kali `Map output records`, padahal di ukuran lain 2 kali?**
+
+- **Jawab**: Karena di full, output satu map task tidak muat di buffer sort. Buffer `mapreduce.task.io.sort.mb` 100 MB mulai ditulis ke disk saat mencapai batas lunak 83.886.080 byte (80%). Log task job full menunjukkan setiap map task menulis 2 file spill ("Finished spill 0" dan "Finished spill 1"), lalu keduanya digabung lagi di disk sebelum dikirim ke reducer. Di 100k sampai 1m setiap map cukup satu kali spill, jadi angkanya tetap 2 kali (sekali di sisi map, sekali saat merge di sisi reduce). Dengan combiner, `Spilled Records` full hanya 3.231.
+- **Tunjukkan**: `grep 'Map output records\|Spilled Records' output/hadoop/hadoop_log_taxi_full.txt` (5.857.408 dan 17.572.224 = 3 x 5.857.408), lalu log task di container NodeManager:
+  ```bash
+  docker compose -f infra/docker-compose.yml exec nodemanager bash -c 'grep -rh "soft limit\|Finished spill" /var/log/hadoop/userlogs/application_1792842635443_0027/'
+  ```
+  Log task ini hanya ada selama container `nodemanager` tidak dihapus. Kalau container dibuat ulang, yang tersisa hanya counter di `output/hadoop/`.
+
+**Di log Hadoop full ada `Killed map tasks=1`. Apakah ada task yang gagal?**
+
+- **Jawab**: Tidak. Itu *speculative execution*, yang aktif secara default di Hadoop. Log ApplicationMaster job full menunjukkan Hadoop memutuskan menjalankan attempt cadangan untuk task `m_000001`, karena task itu terlihat lebih lambat dari task lain. Kurang dari setengah detik kemudian attempt aslinya selesai, sehingga attempt cadangan (`attempt_..._m_000001_1`) dibunuh saat masih berstatus `UNASSIGNED`, sebelum mendapat container. Karena itu `Launched map tasks` tetap 2, sama dengan jumlah split. `Shuffled Maps=2`, `Failed Shuffles=0`, dan hasilnya lolos `verify_results.py`.
+- Counter yang sama juga muncul di log `taxi_1m` dan `taxi_full_combiner`. Yang kami telusuri sampai log ApplicationMaster hanya job full, jadi untuk dua job lainnya penyebab yang sama adalah dugaan.
+- **Tunjukkan**: `grep -H 'Killed map\|Launched map' output/hadoop/hadoop_log_*.txt`, lalu:
+  ```bash
+  docker compose -f infra/docker-compose.yml exec nodemanager bash -c 'grep -rh "speculating\|Issuing kill\|UNASSIGNED to KILLED" /var/log/hadoop/userlogs/application_1792842635443_0027/'
+  ```
+
 **Tiga ulangan cukup?**
 
 - **Jawab**: Untuk melihat perbedaan besar (misalnya 33 detik lawan 7 detik di full), cukup. Untuk perbedaan yang lebih kecil dari variasi antar ulangan (Spark sekitar 1,7 detik, Hadoop sampai 4,6 detik), tidak cukup, dan kami tidak menarik kesimpulan dari selisih sekecil itu. Semua angka per ulangan ada di `benchmark.csv`.
 
 ### 8.6 Kebenaran hasil
+
+**Berapa perbandingan yang sebenarnya diverifikasi?**
+
+- **Jawab**: 16. `verify_results.py` mencetak 5 baris per ukuran, tetapi baris pertama adalah MapReduce lokal dibandingkan dengan dirinya sendiri, karena MapReduce lokal dipakai sebagai referensi. Yang bermakna adalah 4 engine lain x 4 ukuran = 16 perbandingan, dan semuanya OK (250, 264, 271, dan 284 key). Jangan menyebut "20 dari 20".
+- Selisih terbesar yang benar-benar terjadi untuk total dan rata-rata adalah 0,01 (di 100k, 1m, dan full). Di 500k selisihnya 0. Count selalu identik.
+- **Tunjukkan**: `for d in taxi_100k taxi_500k taxi_1m taxi_full; do python benchmark/verify_results.py $d; done`.
 
 **`verify_results.py` hanya membandingkan engine satu sama lain. Kalau semuanya salah dengan cara yang sama?**
 
