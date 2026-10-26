@@ -45,7 +45,11 @@ Siapkan:
 >
 > Pekerjaannya: dari data NYC Yellow Taxi Januari 2024, hitung jumlah trip, total tarif, rata-rata tarif, dan rata-rata jarak, per zona penjemputan dan per jam. Kami menjalankannya di empat ukuran data, dari 100 ribu baris sampai 2,96 juta baris.
 >
-> Ada lima engine: MapReduce lokal, Hadoop YARN, Hadoop YARN dengan combiner, Spark DataFrame, dan Spark RDD. Semuanya dijalankan di satu laptop. Urutannya: data, logika MapReduce, tiap engine, lalu bukti bahwa hasilnya sama, dan terakhir kesimpulan. Demo hari ini memakai data 100 ribu baris supaya selesai dalam beberapa menit. Hasil ukuran lain sudah kami simpan dan akan ditunjukkan di bagian benchmark."
+> Kasusnya: kalau kita pengelola armada taksi di New York, kita ingin tahu dua hal dari data transaksi satu bulan. Pertama, zona mana yang paling banyak trip dan paling besar pendapatannya, untuk menentukan ke mana armada diarahkan. Kedua, jam berapa permintaan paling tinggi, untuk mengatur jadwal pengemudi. Dua pertanyaan ini dijawab oleh satu job agregasi yang sama, yang kami jalankan di Hadoop dan Spark.
+>
+> Ada lima engine: MapReduce lokal, Hadoop YARN, Hadoop YARN dengan combiner, Spark DataFrame, dan Spark RDD. Semuanya dijalankan di satu laptop. Urutannya: data, logika MapReduce, tiap engine, lalu bukti bahwa hasilnya sama, dan terakhir kesimpulan. Demo hari ini memakai data 100 ribu baris supaya selesai dalam beberapa menit. Hasil ukuran lain sudah kami simpan dan akan ditunjukkan di bagian benchmark.
+>
+> Semua kode ada di repositori GitHub kami, `kelompok-10-itpi`, dan laporan analisis perbandingannya ada di repositori yang sama, di `docs/PANDUAN.md`."
 
 ---
 
@@ -121,7 +125,9 @@ Begitu job mulai, pindah ke editor dan buka `infra/docker-compose.yml`.
 >
 > Klaster Hadoop 3.4.1 kami jalankan dengan Docker Compose. Ada empat service: NameNode dan DataNode untuk HDFS, ResourceManager dan NodeManager untuk YARN. Jumlah DataNode satu, jadi replikasi blok satu. Artinya klaster ini tidak punya toleransi kegagalan, dan bagian itu tidak kami uji.
 >
-> Kapasitas NodeManager diatur 4 vcore dan 4096 MB di konfigurasi YARN. [`infra/config`, baris 10–11] Angka ini kapasitas yang dilaporkan ke YARN, bukan batas yang dipaksakan Docker."
+> Kapasitas NodeManager diatur 4 vcore dan 4096 MB di konfigurasi YARN. [`infra/config`, baris 10–11] Angka ini kapasitas yang dilaporkan ke YARN, bukan batas yang dipaksakan Docker.
+>
+> Ada satu hal yang perlu kami jelaskan soal 4 vcore. Scheduler kami memakai `DefaultResourceCalculator` [baris 18], yang hanya menghitung memori. Jadi angka 4 vcore tidak benar-benar membatasi CPU. Container Docker kami juga tidak diberi batas CPU maupun memori. Yang membatasi dalam praktik adalah memori 4096 MB dan jumlah task: job kami membuat 2 map task dan 1 reduce task."
 
 **[ADIT]** Buka `infra/run_hadoop_job.sh`. Sorot baris 17–20, 24–28, lalu 34.
 
@@ -200,13 +206,19 @@ python benchmark/verify_results.py taxi_100k
 
 **[ADIT]** Buka `benchmark/results/benchmark.csv`, lalu tabel benchmark di `README.md`.
 
-> "Benchmark: tiap kombinasi dijalankan tiga kali dan kami ambil median waktu job. Semua ukuran dijalankan ulang dalam satu sesi, supaya tidak ada selisih antar-sesi.
+> "Semua pengukuran dilakukan di satu laptop: Intel Core i7-12650H, 10 core fisik dan 16 thread, RAM 15,3 GiB. Hadoop berjalan di Docker dengan Java 8, Spark berjalan langsung di host dengan Java 21.
+>
+> Benchmark: tiap kombinasi dijalankan tiga kali dan kami ambil median waktu job. Semua ukuran dijalankan ulang dalam satu sesi, supaya tidak ada selisih antar-sesi.
 >
 > Pada 100 ribu baris, MapReduce lokal selesai dalam 0,53 detik. Hadoop YARN butuh 17,34 detik, dan Spark sekitar 6 detik. Pada data sekecil ini yang terukur adalah biaya tetap, bukan pemrosesan. Kami menduga biaya tetap Hadoop berasal dari pengajuan job ke YARN dan penyalaan ApplicationMaster serta JVM container, tetapi kami belum mengurainya per komponen. **[dugaan]**
 >
 > Pada data penuh, 2,96 juta baris: Spark 7,30 sampai 7,43 detik. Hadoop tanpa combiner 33,40 detik, sekitar 4,5 sampai 4,6 kali lebih lambat dari Spark. Hadoop dengan combiner 24,51 detik, sekitar 3,3 kali lebih lambat. MapReduce lokal 10,91 detik. Semua ini berlaku di satu laptop dan dalam satu sesi benchmark.
 >
 > Efek combiner di data penuh: data shuffle turun dari 137,6 MB menjadi 32,5 KB, atau 99,98 persen. Waktu job turun dari 33,40 menjadi 24,51 detik, 27 persen. Di 100 ribu baris, combiner justru lebih lambat: 19,54 detik lawan 17,34 detik. Dugaan kami, data yang dihemat terlalu kecil untuk menutup biaya proses Python dan sort tambahan. **[dugaan]**
+>
+> Selain waktu, kami mengukur resource: waktu CPU dan memori puncak, yaitu kolom `cpu_sec` dan `peak_mem_mb` di `benchmark.csv`. Di data penuh, CPU Spark 23 sampai 25 detik, sedangkan waktu total prosesnya sekitar 8 sampai 9 detik. Artinya rata-rata hampir tiga core bekerja bersamaan, jadi `local[4]` memang terpakai. CPU Hadoop 19,5 detik, dan turun menjadi 10,5 detik dengan combiner, karena data yang diurutkan dan di-shuffle jauh lebih sedikit. MapReduce lokal 14,5 detik. Memori puncak di data penuh berkisar 836 sampai 1.347 MiB.
+>
+> Ada satu catatan penting. Resource Hadoop dan engine lokal diukur dengan alat yang berbeda. Untuk Hadoop kami memakai counter task di log job, yang tidak menghitung ApplicationMaster maupun daemon HDFS dan YARN. Untuk engine lokal kami memakai psutil, yang menghitung proses beserta semua child-nya. Karena itu angka CPU dan memori kami pakai untuk melihat tren antar ukuran data di engine yang sama, bukan untuk menyatakan engine mana yang paling hemat. I/O disk tidak kami ukur.
 >
 > Kesimpulannya disampaikan Mas Adit."
 
@@ -216,7 +228,9 @@ python benchmark/verify_results.py taxi_100k
 
 **Adit.** **[ADIT]** Tampilkan `README.md`.
 
-> "Kesimpulan kami ada tiga.
+> "Pertama, jawaban kasusnya, dari data penuh. Jam tersibuk adalah pukul 18.00 dengan 210.308 trip, dan yang paling sepi pukul 04.00 dengan 16.330 trip. Tiga zona punya jumlah trip hampir sama, sekitar 141 ribu, yaitu zona 161, 237, dan 132. Tetapi pendapatan zona 132 adalah 11,3 juta dolar, lebih dari tiga kali zona 161, karena rata-rata jaraknya 15,6 mil. Menurut tabel zona TLC, zona 132 adalah Bandara JFK. Artinya, untuk pendapatan, jumlah trip saja tidak cukup; jarak trip ikut menentukan. [`output/mapreduce/mr_result_taxi_full.tsv`]
+>
+> Lalu kesimpulan perbandingan engine-nya ada tiga.
 >
 > Pertama, kelima engine menghasilkan angka yang sama: 16 perbandingan, semuanya OK.
 >
@@ -225,6 +239,8 @@ python benchmark/verify_results.py taxi_100k
 > Ketiga, combiner memangkas data shuffle Hadoop hampir seluruhnya dan mempercepat job di data penuh, tetapi tidak membantu di data kecil.
 >
 > Beberapa batasan yang perlu kami sampaikan sendiri. Data terbesar 132,8 MB, masih di bawah satu blok HDFS 128 MiB, jadi ini bukan skala yang membuat Hadoop dan Spark diciptakan. Hadoop tetap membuat dua split karena nilai default `mapreduce.job.maps` adalah 2. Semua engine berjalan di satu laptop, HDFS hanya punya satu DataNode, dan alasan Spark lebih cepat di sini belum kami ukur: kami hanya mengamati bahwa ia lebih cepat. Subset diambil dari baris pertama, bukan acak.
+>
+> Analisis lengkapnya, termasuk counter Hadoop, angka CPU dan memori, serta cara membaca setiap angka, ada di laporan kami, `docs/PANDUAN.md` bagian 7, di repositori GitHub `kelompok-10-itpi`.
 >
 > Terima kasih. Kami siap menerima pertanyaan."
 
@@ -259,6 +275,55 @@ python benchmark/verify_results.py taxi_100k
 | Apakah combiner benar-benar dijalankan? | Ya. Di log 100k, `Combine input records` sama dengan `Map output records` (196804), dan `Combine output records=449`. | `PANDUAN.md` 8.3 |
 | Bukankah DataFrame seharusnya lebih cepat dari RDD? | Di data kami tidak ada pemenang yang terbukti. Selisihnya 0,1 sampai 1,7 detik, sebesar variasi antar ulangan. Sebabnya belum diprofil. | `PANDUAN.md` 8.4 |
 | Kenapa demo hanya 100k? | Kode dan alurnya sama untuk semua ukuran, yang berbeda hanya nama file. Benchmark penuh butuh sekitar 15 sampai 40 menit, jadi hasilnya ditunjukkan dari file. | `PANDUAN.md` 3.1 |
+| Spesifikasi mesinnya apa? | Satu laptop: i7-12650H, 10 core fisik dan 16 thread, RAM 15,3 GiB. Container Docker tidak diberi batas CPU maupun memori. | Tabel A di bawah |
+| Kenapa CPU Spark jauh lebih besar dari waktu job-nya? | Di data penuh, CPU 23 sampai 25 detik habis dalam waktu proses total sekitar 8 sampai 9 detik, jadi rata-rata hampir 3 core bekerja sekaligus. Di 100k CPU sudah 18 detik, dugaan kami sebagian besar untuk startup JVM, belum diukur terpisah. | Tabel C di bawah |
+| Kenapa CPU Hadoop terlihat kecil? | Counter `CPU time spent` hanya menghitung map dan reduce task. ApplicationMaster dan daemon HDFS/YARN tidak ikut, jadi angkanya tidak bisa dibandingkan dengan Spark. | Tabel C di bawah |
+
+### Bahan jawaban: setting engine, CPU, dan RAM
+
+**A. Mesin, sama untuk semua engine**
+
+| Item | Nilai | Cara cek |
+|---|---|---|
+| CPU | Intel Core i7-12650H, 10 core fisik, 16 thread | `lscpu` |
+| RAM | 15,3 GiB | `free -m`, `docker info` |
+| Batas container Docker | Tidak ada (NanoCpus=0, Memory=0 di keempat container) | `docker inspect` |
+| Java | Host 21.0.12 untuk Spark, container 1.8.0_212 untuk Hadoop | `java -version` |
+
+Kondisi RAM bebas saat benchmark berjalan tidak tercatat.
+
+**B. Setting per engine**
+
+| | MapReduce lokal | Hadoop YARN (± combiner) | Spark DataFrame | Spark RDD |
+|---|---|---|---|---|
+| Batas CPU | Tidak ada | 4 vcore (`infra/config` baris 11), tetapi `DefaultResourceCalculator` (baris 18) hanya menghitung memori, jadi CPU tidak dibatasi | `local[4]`, paling banyak 4 thread (`spark_job.py` baris 103) | Sama, `local[4]` |
+| Batas memori | Tidak ada | 4096 MB total container (baris 10), dibagi ke AM 1536 MB, map 1024 MB, reduce 1024 MB. Cek pmem/vmem dimatikan | Heap driver 4g (`spark_job.py` baris 104) | Heap 4g. Proses worker Python berada di luar angka itu |
+| Paralelisme | Satu alur: mapper, `sort`, reducer | 2 split, jadi 2 map task dan 1 reduce task. Speculative execution aktif (`Killed map tasks=1` di log full) | AQE menggabungkan partisi shuffle | `minPartitions` = 4, `reduceByKey` |
+| Penyimpanan input | Disk lokal | HDFS, 1 DataNode, replikasi 1 | Disk lokal | Disk lokal |
+
+**C. CPU dan memori terukur, median 3 ulangan** (`benchmark/results/benchmark.csv`)
+
+| Engine | job_sec full | cpu_sec 100k / full | Memori puncak 100k / full (MiB) |
+|---|---:|---:|---:|
+| MapReduce lokal | 10,9 | 0,6 / 14,5 | 22 / 836 |
+| Hadoop YARN | 33,4 | 3,6 / 19,5 | 845 / 1347 |
+| Hadoop YARN + combiner | 24,5 | 2,5 / 10,5 | 829 / 899 |
+| Spark DataFrame | 7,4 | 18,4 / 23,4 | 728 / 1219 |
+| Spark RDD | 7,3 | 19,1 / 25,5 | 789 / 845 |
+
+CPU dan memori Hadoop diambil dari counter task (`CPU time spent`, `Physical memory snapshot`). Engine lokal diukur dengan psutil pada proses dan semua child-nya. Karena alat ukurnya berbeda, kolom ini dipakai untuk membandingkan antar ukuran data pada engine yang sama, bukan antar engine. Combiner menurunkan CPU Hadoop di data penuh dari 19,5 ke 10,5 detik.
+
+**D. Hal yang membuat perbandingan tidak identik**
+
+1. Overhead YARN dan ApplicationMaster hanya ditanggung Hadoop.
+2. Batas memori Hadoop adalah total container, sedangkan batas Spark adalah heap driver.
+3. Vcore YARN tidak ditegakkan dan Docker tidak dibatasi, tetapi Hadoop hanya menjalankan 2 map sekaligus.
+4. Java 8 di container lawan Java 21 di host.
+5. HDFS lawan disk lokal.
+6. Daemon Hadoop tetap menyala saat Spark diukur (dugaan: sedikit mengurangi resource untuk Spark, belum diukur).
+7. Input CSV, bukan Parquet, sehingga Spark tidak bisa memakai kelebihan format kolom.
+
+**Kalimat siap ucap (Adit):** "Mesinnya satu, i7-12650H dengan 16 thread dan RAM 15 GB, tanpa batas Docker. Setting kami samakan secara nominal, 4 core dan 4 GB: YARN 4096 MB dan 4 vcore, Spark `local[4]` dengan driver 4g. Itu setara di atas kertas, bukan identik. YARN 4096 MB adalah total container termasuk ApplicationMaster, Spark 4g adalah heap driver, dan vcore YARN tidak ditegakkan. Karena itu yang kami bandingkan antar engine adalah `job_sec`. CPU dan memori kami pakai untuk melihat tren antar ukuran data di engine yang sama, karena alat ukurnya berbeda."
 
 ---
 
