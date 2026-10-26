@@ -23,7 +23,7 @@ benchmark/results/benchmark_arsip_*  run sesi lain, hanya untuk perbandingan ant
 
 ## Hasil singkat
 
-Kelima engine memberi hasil yang sama di keempat dataset (`verify_results.py`: 20/20 OK). Median `job_sec` dari 3 ulangan, dalam detik:
+Kelima engine memberi hasil yang sama di keempat dataset (`verify_results.py`: 16 perbandingan OK, yaitu 4 engine × 4 ukuran terhadap MapReduce lokal). Median `job_sec` dari 3 ulangan, dalam detik:
 
 | Engine | 100k | 500k | 1m | full (2,96 juta baris) |
 |---|---:|---:|---:|---:|
